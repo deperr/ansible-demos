@@ -1,0 +1,23 @@
+---
+
+- name: Resolve SA password (mssql_sa_password or legacy mssql_pass)
+  ansible.builtin.set_fact:
+    mssql_effective_password: "{{ mssql_sa_password | default(mssql_pass | default('')) }}"
+
+- name: Validate SA password for SQL Server install
+  ansible.builtin.assert:
+    that:
+      - mssql_effective_password | length > 0
+    fail_msg: >-
+      Set mssql_sa_password (recommended) or mssql_pass via vault, --extra-vars, inventory, or AAP survey/credential.
+
+- name: Install SQL Server using microsoft.sql.server role
+  ansible.builtin.include_role:
+    name: microsoft.sql.server
+  vars:
+    mssql_accept_microsoft_odbc_driver_for_sql_server_eula: "{{ mssql_accept_microsoft_odbc_driver_for_sql_server_eula }}"
+    mssql_accept_microsoft_cli_utilities_for_sql_server_eula: "{{ mssql_accept_microsoft_cli_utilities_for_sql_server_eula }}"
+    mssql_accept_microsoft_sql_server_standard_eula: "{{ mssql_accept_microsoft_sql_server_standard_eula }}"
+    mssql_version: "{{ mssql_version }}"
+    mssql_password: "{{ mssql_effective_password }}"
+    mssql_edition: "{{ mssql_edition }}"

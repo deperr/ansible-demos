@@ -1,0 +1,11 @@
+---
+# defaults file for dperrone.apps.apache
+
+# Absolute path on the host for Apache document root (web content)
+apache_web_root: /var/www/apache
+# Host port to expose the container HTTP server
+apache_port: 8080
+
+# Survey-configurable: heading and message for the test page (set via AAP survey extra vars)
+apache_test_page_heading: "Apache Test Page"
+apache_test_page_message: "If you can see this page, Apache is running correctly in the Podman container."

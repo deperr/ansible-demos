@@ -1,0 +1,16 @@
+---
+
+# Standalone Microsoft SQL Server: install engine + create database (same as install_app.yml with app_role=mssql).
+# Optional: load vaulted variables (uncomment after creating the file from vars/mssql.vault.yml.example).
+# vars_files:
+#   - ../../vars/mssql.vault.yml
+
+- name: Install Microsoft SQL Serve (MSSQL) and create a database
+  hosts: "{{ _hosts | default('db_servers') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Run the MSSQL role (install + create database)
+      ansible.builtin.include_role:
+        name: dperr.apps.mssql

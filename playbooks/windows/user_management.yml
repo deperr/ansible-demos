@@ -1,0 +1,104 @@
+---
+
+- name: User management
+  hosts: "{{ _hosts | default('os_windows') }}"
+  gather_facts: false
+
+  tasks:
+    - name: Validate user_management_action
+      ansible.builtin.assert:
+        that:
+          - user_management_action is defined
+          - user_management_action | lower in ['add', 'remove']
+        fail_msg: >-
+          Set user_management_action to 'add' or 'remove' (survey multiple choice).
+
+    - name: Normalize action choice
+      ansible.builtin.set_fact:
+        user_management_action_normalized: "{{ user_management_action | lower }}"
+
+    - name: Validate survey variables for add
+      when: user_management_action_normalized == 'add'
+      ansible.builtin.assert:
+        that:
+          - firstname is defined and firstname | length > 0
+          - surname is defined and surname | length > 0
+        fail_msg: >-
+          To add user: Provide the first and last name.
+
+    - name: Validate survey variables for remove
+      when: user_management_action_normalized == 'remove'
+      ansible.builtin.assert:
+        that:
+          - >
+            (sam_account_name is defined and sam_account_name | length > 0)
+            or
+            (
+              firstname is defined and firstname | length > 0
+              and surname is defined and surname | length > 0
+            )
+        fail_msg: >-
+          For remove: provide sam_account_name, or both first and last name. 
+          (same pattern as add uses for SAM).
+
+    - name: Generate temporary password for new user
+      when: user_management_action_normalized == 'add'
+      ansible.builtin.set_fact:
+        temp_password: "{{ lookup('community.general.random_string', min_lower=1, min_upper=1, min_special=1, min_numeric=1) }}"
+
+    - name: Resolve SAM account name for removal
+      when: user_management_action_normalized == 'remove'
+      ansible.builtin.set_fact:
+        resolved_sam_account_name: "{{ sam_account_name | default(firstname[0] ~ surname, true) }}"
+
+
+    - name: Create Active Directory user
+      when: user_management_action_normalized == 'add'
+      register: new_user
+      microsoft.ad.user:
+        name: "{{ firstname }} {{ surname }}"
+        firstname: "{{ firstname }}"
+        surname: "{{ surname }}"
+        display_name: "{{ firstname }} {{ surname }}"
+        sam_account_name: "{{ sam_account_name | default(firstname[0] ~ surname, true) }}"
+        company: "{{ company }}"
+        password: "{{ temp_password }}"
+        password_expired: true
+        update_password: "on_create"
+        groups:
+          set:
+            - "Domain Users"
+            - "GroupA"
+            - "GroupB"
+        description: "User create via Ansible automation."
+        state: present
+        # Keep the below commented
+        # street: "{{ street }}"
+        # city: "{{ city }}"
+        # state_province: IN
+        # postal_code: "{{ postal_code }}"
+        # country: US
+        # attributes:
+        #   telephoneNumber: "{{ telephone_number }}"
+
+    - name: Remove AD user
+      when: user_management_action_normalized == 'remove'
+      register: removed_user
+      microsoft.ad.user:
+        identity: "{{ resolved_sam_account_name }}"
+        state: absent
+
+    - name: Display create result
+      when: user_management_action_normalized == 'add'
+      ansible.builtin.debug:
+        var: new_user
+
+    - name: Show temporary password
+      when: user_management_action_normalized == 'add'
+      ansible.builtin.debug:
+        var: temp_password
+
+    - name: Display remove result
+      when: user_management_action_normalized == 'remove'
+      ansible.builtin.debug:
+        var: removed_user

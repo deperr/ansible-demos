@@ -1,0 +1,20 @@
+---
+
+- name: Install applications
+  hosts: "{{ _hosts | default('omit') }}"
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Validate app_role is provided and allowed
+      ansible.builtin.assert:
+        that:
+          - app_role is defined
+          - app_role | length > 0
+          - app_role in ['apache', 'kafka', 'mssql', 'nginx', 'opa']
+        fail_msg: >-
+          Set app_role to one of apache, kafka, mssql (servery or extra vars), nginx, opa.
+
+    - name: Run selected app role from dperr.apps
+      ansible.builtin.include_role:
+        name: "dperr.apps.{{ app_role }}"

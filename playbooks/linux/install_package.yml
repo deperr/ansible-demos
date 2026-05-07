@@ -1,0 +1,69 @@
+---
+
+- name: Install selected Linux packages
+  hosts: "{{ _hosts | default(omit) }}"
+  gather_facts: false
+  become: true
+
+  vars:
+    # Define the package options users can choose in the AAP survey.
+    allowed_packages:
+      - git
+      - curl
+      - wget
+      - vim
+      - htop
+      - nano
+      - unzip
+      - jq
+
+  tasks:
+    - name: Resolve selected package input from survey
+      ansible.builtin.set_fact:
+        selected_packages_input: "{{ selected_packages | default(package_selection | default(packages | default([]))) }}"
+
+    - name: Normalize selected packages to a list
+      ansible.builtin.set_fact:
+        selected_packages: >-
+          {{
+            (
+              selected_packages_input
+              | regex_replace('\n', ',')
+              | split(',')
+              if selected_packages_input is string
+              else selected_packages_input
+            )
+            | map('string')
+            | map('trim')
+            | reject('equalto', '')
+            | list
+          }}
+
+    - name: Validate package selection is not empty
+      ansible.builtin.assert:
+        that:
+          - selected_packages | length > 0
+        fail_msg: >-
+          Select at least one package in the survey variable selected_packages.
+          Example: git,curl
+
+    - name: Build invalid package list from survey
+      ansible.builtin.set_fact:
+        invalid_packages: "{{ selected_packages | difference(allowed_packages) }}"
+
+    - name: Validate all selected packages are approved
+      ansible.builtin.assert:
+        that:
+          - invalid_packages | length == 0
+        fail_msg: >-
+          Unsupported package(s): {{ invalid_packages | join(', ') }}.
+          Allowed values: {{ allowed_packages | join(', ') }}.
+
+    - name: Install selected packages
+      ansible.builtin.package:
+        name: "{{ selected_packages }}"
+        state: present
+
+    - name: Show installed package selection
+      ansible.builtin.debug:
+        msg: "Installed packages: {{ selected_packages | join(', ') }}"

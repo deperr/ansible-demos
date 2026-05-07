@@ -1,0 +1,22 @@
+---
+
+mssql_accept_microsoft_odbc_driver_for_sql_server_eula: true
+mssql_accept_microsoft_cli_utilities_for_sql_server_eula: true
+mssql_accept_microsoft_sql_server_standard_eula: true
+
+# microsoft.sql.server role — version string (e.g. "2022"); confirm against collection docs for your EE.
+mssql_version: "2022"
+mssql_edition: Evaluation
+
+# Required for install + create_db — set via vault/AAP/credential (never commit plaintext).
+# Legacy alias mssql_pass is still honored if mssql_sa_password is unset.
+mssql_sa_password: ""
+
+# Run install.yml and/or create_db.yml when the role main entrypoint is used (e.g. install_app + mssql).
+mssql_install_sql_server: true
+mssql_create_database: true
+
+# community.general.mssql_db — connection target and database name
+mssql_host: localhost
+mssql_user: sa
+mssql_db_name: aap-test-db

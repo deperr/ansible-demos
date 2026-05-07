@@ -1,0 +1,44 @@
+---
+
+- name: Create Open Policy Agent policies directory
+  ansible.builtin.file:
+    path: "{{ opa_policies_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy OPA policies to OPA server
+  ansible.builtin.copy:
+    src: policies/
+    dest: "{{ opa_policies_dir }}/"
+    mode: '0644'
+
+- name: Run the OPA container
+  tags: deploy_opa
+  containers.podman.podman_container:
+    name: opa
+    image: docker.io/openpolicyagent/opa:latest-static
+    state: started
+    command: ["run", "--server", "--watch", "/policies", "--addr", "0.0.0.0:8181"]
+    ports:
+      - "8181:8181"
+    volume:
+      - "{{ opa_policies_dir }}:/policies:Z"
+
+- name: Enable port on the firewall
+  ansible.posix.firewalld:
+    port: 8181/tcp
+    permanent: true
+    state: enabled
+
+- name: Get status of OPA container
+  register: opa_container_info
+  tags: deploy_opa
+  containers.podman.podman_container_info:
+    name: opa
+
+- name: Display OPA container status
+  tags: deploy_opa
+  ansible.builtin.debug:
+    msg: |
+      Policies directory: {{ opa_policies_dir }}
+      OPA server: {{ inventory_hostname }}:8181

@@ -1,0 +1,20 @@
+---
+
+- name: Resolve SQL login password (mssql_sa_password or legacy mssql_pass)
+  ansible.builtin.set_fact:
+    mssql_effective_password: "{{ mssql_sa_password | default(mssql_pass | default('')) }}"
+
+- name: Validate password for database creation
+  ansible.builtin.assert:
+    that:
+      - mssql_effective_password | length > 0
+    fail_msg: >-
+      Set mssql_sa_password (recommended) or mssql_pass via vault, --extra-vars, inventory, or AAP survey/credential.
+
+- name: Create database on SQL Server
+  community.general.mssql_db:
+    login_host: "{{ mssql_host }}"
+    login_user: "{{ mssql_user }}"
+    login_password: "{{ mssql_effective_password }}"
+    name: "{{ mssql_db_name | default(database_name | default(db_name | default('aap-test-db'))) }}"
+    state: present

@@ -1,0 +1,8 @@
+---
+# Copy to vars/mssql.vault.yml (or another path), fill in secrets, then:
+#   ansible-vault encrypt vars/mssql.vault.yml
+# In playbooks/linux/mssql_*.yml uncomment vars_files and point to that file.
+#
+# Or skip this file entirely and inject mssql_sa_password via AAP survey / credential / inventory.
+
+mssql_sa_password: "change-me-in-vault-or-survey"

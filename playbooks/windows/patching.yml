@@ -1,0 +1,10 @@
+---
+
+- name: Windows updates
+  hosts: "{{ _hosts | default('os_windows') }}"
+
+  tasks:
+
+    - name: Patch Windows server
+      ansible.builtin.include_role:
+        name: dperr.windows.patching

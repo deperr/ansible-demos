@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ apache_test_page_heading }}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 42em; margin: 2em auto; padding: 0 1em; }
+    h1 { color: #333; }
+    .info { background: #f5f5f5; padding: 1em; border-radius: 4px; margin: 1em 0; }
+    code { background: #eee; padding: 0.2em 0.4em; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>{{ apache_test_page_heading }}</h1>
+  <p>{{ apache_test_page_message }}</p>
+  <div class="info">
+    <p><strong>Role:</strong> dperrone.apps.apache</p>
+    <p><strong>Document root:</strong> <code>/usr/local/apache2/htdocs</code> (in container)</p>
+  </div>
+</body>
+</html>

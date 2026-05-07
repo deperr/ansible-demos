@@ -1,0 +1,58 @@
+---
+
+- name: VMware snapshot cleanup - Remove old snapshots within timeframe
+  hosts: localhost
+  gather_facts: true
+
+  vars:
+    datacenter: 'SDDC-Datacenter'
+
+  tasks:
+
+    - name: Validate snapshot age parameter
+      ansible.builtin.assert:
+        that:
+          - snapshot_age | default(7) | int > 0
+          - snapshot_age | default(7) | int <= 365
+        fail_msg: "snapshot_age must be between 1 and 365 days (provided: {{ snapshot_age | default(7) }})"
+        success_msg: "Snapshot age threshold validated: {{ snapshot_age | default(7) }} days"
+
+    - name: Initialize snapshot cleanup variables
+      register: cleanup_vars
+      ansible.builtin.set_fact:
+        snapshot_age: "{{ snapshot_age | default(7) | int }}"
+        current_time: "{{ ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%S%z') }}"
+        threshold: "{{ (lookup('pipe', 'date -u -d \"' + (snapshot_age | default(7) | string) + ' days ago\" +%s') | int) }}"
+        vms_processed: []
+        snapshots_removed: 0
+        removal_failures: 0
+
+    - name: Display cleanup configuration
+      ansible.builtin.debug:
+        msg:
+          - "=== VMware Snapshot Cleanup Configuration ==="
+          - "Snapshot Age Threshold: {{ snapshot_age }} days"
+          - "Execution Time: {{ current_time }}"
+
+    - name: Retrieve all virtual machines from vCenter
+      register: all_vms_result
+      vmware.vmware_rest.vcenter_vm_info:
+
+    - name: Get snapshot information from VMs
+      register: snapshot_info
+      community.vmware.vmware_all_snapshots_info:
+        datacenter: "{{ datacenter }}"
+
+    # - name: Debug snapshot names
+    #   ansible.builtin.debug:
+    #     msg: "{{ snapshot_info.vmware_all_snapshots_info | json_query('[].name') }}"
+
+    - name: Remove old snapshots
+      loop: "{{ snapshot_info.vmware_all_snapshots_info }}"
+      when: (item.creation_time | to_datetime('%Y-%m-%dT%H:%M:%S.%f%z')).timestamp() | int < threshold | int
+      vmware.vmware.vm_snapshot:
+        name: "{{ item.vm_name }}"
+        datacenter: "{{ datacenter }}"
+        folder: "/Workloads/{{ item.folder }}"
+        snapshot_name: "{{ item.name }}"
+        state: absent

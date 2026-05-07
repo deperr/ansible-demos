@@ -1,0 +1,16 @@
+---
+
+- name: Scan packages
+  dperr.windows.win_scan_packages:
+  check_mode: false
+
+- name: Scan Services
+  dperr.windows.win_scan_services:
+  check_mode: false
+
+- name: Install Windows Updates
+  register: patchingresult
+  ansible.windows.win_updates:
+    category_names: "{{ win_update_categories | default(omit) }}"
+    reboot: "{{ allow_reboot }}"
+    state: installed

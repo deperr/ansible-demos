@@ -1,0 +1,44 @@
+---
+# tasks file for dperrone.apps.apache
+
+- name: Create Apache document root directory
+  ansible.builtin.file:
+    path: "{{ apache_web_root }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy test web page to document root
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ apache_web_root }}/index.html"
+    mode: '0644'
+
+- name: Run Apache httpd container
+  tags: deploy_apache
+  containers.podman.podman_container:
+    name: apache
+    image: docker.io/library/httpd:latest
+    state: started
+    ports:
+      - "{{ apache_port }}:80"
+    volume:
+      - "{{ apache_web_root }}:/usr/local/apache2/htdocs:Z"
+
+- name: Enable Apache port on the firewall
+  ansible.posix.firewalld:
+    port: "{{ apache_port }}/tcp"
+    permanent: true
+    state: enabled
+
+- name: Get status of Apache container
+  register: apache_container_info
+  tags: deploy_apache
+  containers.podman.podman_container_info:
+    name: apache
+
+- name: Display Apache container status
+  tags: deploy_apache
+  ansible.builtin.debug:
+    msg: |
+      Document root: {{ apache_web_root }}
+      Test page URL: http://{{ inventory_hostname }}:{{ apache_port }}/

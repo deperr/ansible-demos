@@ -1,0 +1,39 @@
+- name: dconf_update
+  ansible.builtin.command: dconf update
+
+- name: auditd_restart
+  ansible.builtin.command: /usr/sbin/service auditd restart
+
+- name: ssh_restart
+  ansible.builtin.service:
+    name: sshd
+    state: restarted
+
+- name: rsyslog_restart
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+
+- name: sysctl_load_settings
+  ansible.builtin.command: sysctl --system
+
+- name: daemon_reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: networkmanager_reload
+  ansible.builtin.service:
+    name: NetworkManager
+    state: reloaded
+
+- name: logind_restart
+  ansible.builtin.service:
+    name: systemd-logind
+    state: restarted
+
+- name: with_faillock_enable
+  ansible.builtin.command: authselect enable-feature with-faillock
+
+- name: do_reboot
+  ansible.builtin.reboot:
+    pre_reboot_delay: 60

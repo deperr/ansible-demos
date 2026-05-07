@@ -1,0 +1,28 @@
+.logs/*
+*.retry
+*.vault
+collections/*
+!collections/ansible_collections
+!collections/requirements.yml
+collections/ansible_collections/*
+!collections/ansible_collections/dperr
+
+# pyenv
+ .python-version
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# MacOS
+.DS_Store
+
+# Ansible
+.ansible/
+# Ad-hoc local secret filenames (use vault + examples; do not commit real secrets)
+secrets.yml

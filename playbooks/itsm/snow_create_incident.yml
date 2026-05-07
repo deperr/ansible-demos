@@ -1,0 +1,66 @@
+---
+
+- name: Create ServiceNow Incident
+  hosts: localhost
+  gather_facts: false
+  
+  # Module defaults for ServiceNow authentication and instance
+  module_defaults:
+    servicenow.itsm.incident:
+      instance:
+        host: "{{ servicenow_instance }}"
+        username: "{{ servicenow_username }}"
+        password: "{{ servicenow_password }}"
+    servicenow.itsm.incident_info:
+      instance:
+        host: "{{ servicenow_instance }}"
+        username: "{{ servicenow_username }}"
+        password: "{{ servicenow_password }}"
+
+  tasks:
+
+    - name: Create incident ticket in ServiceNow
+      register: created_incident
+      servicenow.itsm.incident:
+        short_description: "{{ incident_short_description | default('Incident created via AAP') }}"
+        description: "{{ incident_description | default('This is an incident created using Ansible Automation Platform with the ServiceNow collection') }}"
+        urgency: "{{ incident_urgency | default('medium') }}"
+        impact: "{{ incident_impact | default('medium') }}"
+        caller: "{{ incident_caller | default(servicenow_username) }}"
+        other:
+          state: "{{ incident_stat | default('new') }}"
+
+    - name: Display incident creation results
+      ansible.builtin.debug:
+        msg:
+          - "Incident created successfully!"
+          - "Incident Number: {{ created_incident.record.number }}"
+          - "Incident Sys ID: {{ created_incident.record.sys_id }}"
+          - "State: {{ created_incident.record.state }}"
+          - "Short Description: {{ created_incident.record.short_description }}"
+
+    - name: Set incident facts for workflow use
+      ansible.builtin.set_fact:
+        created_incident_number: "{{ created_incident.record.number }}"
+        created_incident_sys_id: "{{ created_incident.record.sys_id }}"
+        created_incident_state: "{{ created_incident.record.state }}"
+
+    - name: Save incident details to job artifacts
+      delegate_to: localhost
+      run_once: true
+      ansible.builtin.set_stats:
+        data:
+          # Use these exact variable names in the next job template
+          created_incident_number: "{{ created_incident.record.number }}"
+          created_incident_sys_id: "{{ created_incident.record.sys_id }}"
+          created_incident_state: "{{ created_incident.record.state }}"
+          created_incident_priority: "{{ created_incident.record.priority }}"
+          incident_url: "{{ servicenow_instance }}/nav_to.do?uri=incident.do?sys_id={{ created_incident.record.sys_id }}"
+        per_host: false
+        aggregate: true
+
+  handlers:
+    - name: Send notification on incident creation
+      listen: "incident_created"
+      ansible.builtin.debug:
+        msg: "Incident {{ created_incident.record.number }} has been created and is ready for processing"

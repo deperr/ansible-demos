@@ -1,0 +1,6 @@
+---
+# tasks file for dperrone.apps.nginx
+
+- name: Display the value of nginx_my_variable
+  ansible.builtin.debug:
+    msg: "The value of nginx_my_variable is {{ nginx_my_variable }}"

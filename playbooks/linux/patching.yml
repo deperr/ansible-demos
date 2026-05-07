@@ -1,0 +1,66 @@
+---
+
+- name: Patch Linux servers
+  hosts: "{{ _hosts  | default(omit) }}"
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Validate supported Linux families
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family in ['RedHat', 'Debian']
+        fail_msg: >-
+          This playbook currently supports RedHat/Fedora and Debian/Ubuntu hosts.
+          Detected os_family={{ ansible_facts.os_family }}.
+
+    - name: Install needs-restarting dependency on RedHat family
+      when: ansible_facts.os_family == 'RedHat'
+      ansible.builtin.package:
+        name: "{{ 'dnf-utils' if ansible_facts.pkg_mgr == 'dnf' else 'yum-utils' }}"
+        state: present
+
+    - name: Upgrade packages on RedHat/Fedora hosts
+      when: ansible_facts.os_family == 'RedHat'
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: true
+
+    - name: Upgrade packages on Debian/Ubuntu hosts
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: dist
+
+    - name: Get package facts
+      check_mode: false
+      ansible.builtin.package_facts:
+
+    - name: Check if RedHat/Fedora server needs reboot
+      register: reboot_result_redhat
+      when: ansible_facts.os_family == 'RedHat'
+      changed_when: reboot_result_redhat.rc == 1
+      failed_when: reboot_result_redhat.rc > 1
+      ansible.builtin.command: needs-restarting -r
+
+    - name: Check if Debian/Ubuntu server needs reboot
+      register: reboot_required_file
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+
+    - name: Set reboot requirement flag
+      ansible.builtin.set_fact:
+        reboot_required: >-
+          {{
+            (ansible_facts.os_family == 'RedHat' and reboot_result_redhat.rc == 1)
+            or
+            (ansible_facts.os_family == 'Debian' and reboot_required_file.stat.exists | default(false))
+          }}
+
+    - name: Reboot server if required
+      when: reboot_required | bool
+      ansible.builtin.reboot:
+        reboot_timeout: 1200
+        msg: "Reboot initiated by patching playbook after package updates."

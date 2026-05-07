@@ -1,0 +1,134 @@
+---
+
+# ServiceNow Incident Closure Playbook - Workflow Only
+# This playbook closes an existing incident in ServiceNow as part of a workflow
+- name: Close ServiceNow Incident
+  hosts: localhost
+  gather_facts: false
+
+  module_defaults:
+    servicenow.itsm.incident:
+      instance:
+        host: "{{ servicenow_instance }}"
+        username: "{{ servicenow_username }}"
+        password: "{{ servicenow_password }}"
+    servicenow.itsm.incident_info:
+      instance:
+        host: "{{ servicenow_instance }}"
+        username: "{{ servicenow_username }}"
+        password: "{{ servicenow_password }}"
+
+  tasks:
+    - name: Set incident identifiers from workflow artifacts
+      ansible.builtin.set_fact:
+        target_incident_number: "{{ created_incident_number | default(updated_incident_number | default('')) }}"
+        target_incident_sys_id: "{{ created_incident_sys_id | default(updated_incident_sys_id | default('')) }}"
+
+    - name: Validate workflow incident data
+      ansible.builtin.assert:
+        that:
+          - target_incident_number | length > 0 or target_incident_sys_id | length > 0
+        fail_msg: "No incident data received from workflow. Ensure this playbook runs after create or update incident."
+        success_msg: "Incident data received from workflow"
+
+    - name: Query incident details for closure
+      register: incident_info
+      servicenow.itsm.incident_info:
+        number: "{{ target_incident_number if target_incident_number else omit }}"
+        sys_id: "{{ target_incident_sys_id if target_incident_sys_id else omit }}"
+
+    - name: Verify incident can be closed
+      ansible.builtin.assert:
+        that:
+          - incident_info.records | length > 0
+          - incident_info.records[0].state not in ['7', '8']  # Not already closed or canceled
+        fail_msg: "Incident not found or already closed/canceled"
+        success_msg: "Incident ready for closure"
+
+    - name: Set working incident details
+      ansible.builtin.set_fact:
+        working_incident_number: "{{ incident_info.records[0].number }}"
+        working_incident_sys_id: "{{ incident_info.records[0].sys_id }}"
+        current_state: "{{ incident_info.records[0].state }}"
+
+    - name: Display incident closure information
+      ansible.builtin.debug:
+        msg:
+          - "Closing incident: {{ working_incident_number }}"
+          - "Current state: {{ current_state }}"
+          - "Closure method: {{ closure_method | default('Resolved') }}"
+          - "Close notes: {{ close_notes | default('Auto-generated') }}"
+
+    - name: Close ServiceNow incident
+      register: closure_result
+      servicenow.itsm.incident:
+        state: "{{ closure_method | default('6') }}"  # 6=Resolved, 7=Closed
+        number: "{{ working_incident_number }}"
+        close_notes: "{{ close_notes | default('Incident resolved via Ansible Automation Platform workflow. Automated closure completed successfully.') }}"
+        close_code: "{{ close_code | default('Solution provided') }}"
+        other:
+          work_notes: "{{ work_notes | default('Incident closed automatically by workflow process.') }}"
+          resolved_by: "{{ servicenow_username }}"
+          closed_by: "{{ servicenow_username }}"
+
+    - name: Display closure results
+      when: 
+        - closure_result is defined
+        - closure_result.record is defined
+      ansible.builtin.debug:
+        msg:
+          - "[SUCCESS] Incident closed successfully"
+          - "Incident Number: {{ closure_result.record.number | default('N/A') }}"
+          - "Final State: {{ closure_result.record.state | default('N/A') }}"
+          - "Closed By: {{ closure_result.record.closed_by | default('N/A') }}"
+          - "Close Code: {{ closure_result.record.close_code | default('N/A') }}"
+          - "Resolution Time: {{ closure_result.record.sys_updated_on | default('N/A') }}"
+
+    - name: Set closed incident facts for workflow use
+      when: 
+        - closure_result is defined
+        - closure_result.record is defined
+      ansible.builtin.set_fact:
+        closed_incident_number: "{{ closure_result.record.number | default(working_incident_number) }}"
+        closed_incident_sys_id: "{{ closure_result.record.sys_id | default(working_incident_sys_id) }}"
+        closed_incident_state: "{{ closure_result.record.state | default('6') }}"
+        closed_incident_close_code: "{{ closure_result.record.close_code | default('') }}"
+
+    - name: Set closed incident facts for workflow use (fallback)
+      when: 
+        - closure_result is not defined or closure_result.record is not defined
+      ansible.builtin.set_fact:
+        closed_incident_number: "{{ working_incident_number }}"
+        closed_incident_sys_id: "{{ working_incident_sys_id }}"
+        closed_incident_state: "{{ closure_method | default('6') }}"
+        closed_incident_close_code: "{{ close_code | default('Solution provided') }}"
+
+    - name: Save closure details to job artifacts
+      ansible.builtin.set_stats:
+        data:
+          closed_incident_number: "{{ closed_incident_number }}"
+          closed_incident_sys_id: "{{ closed_incident_sys_id }}"
+          closed_incident_state: "{{ closed_incident_state }}"
+          closed_incident_close_code: "{{ closed_incident_close_code }}"
+          closure_method: "{{ closure_method | default('6') }}"
+          incident_url: "{{ servicenow_instance }}/nav_to.do?uri=incident.do?sys_id={{ closed_incident_sys_id }}"
+          closure_timestamp: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+          closure_success: "{{ (closure_result is defined and closure_result.record is defined) | bool }}"
+        per_host: false
+        aggregate: true
+
+    - name: Display closure completion summary
+      ansible.builtin.debug:
+        msg:
+          - "Incident Closure Complete"
+          - "Incident: {{ closed_incident_number }}"
+          - "Final State: {{ 'Resolved' if closed_incident_state == '6' else 'Closed' if closed_incident_state == '7' else 'Unknown' }}"
+          - "Close Code: {{ closed_incident_close_code if closed_incident_close_code else 'Default' }}"
+          - "URL: {{ servicenow_instance }}/nav_to.do?uri=incident.do?sys_id={{ closed_incident_sys_id }}"
+          - "Closed: {{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+
+  handlers:
+    - name: Send notification on incident closure
+      listen: "incident_closed"
+      ansible.builtin.debug:
+        msg: "Incident {{ closed_incident_number }} has been successfully closed"

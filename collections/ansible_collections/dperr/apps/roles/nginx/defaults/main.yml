@@ -1,0 +1,6 @@
+---
+# defaults file for dperrone.apps.nginx
+
+# Variable that will be displayed in debug output
+# This demonstrates proper role variable naming with the 'run_' prefix
+nginx_my_variable: "default_value"

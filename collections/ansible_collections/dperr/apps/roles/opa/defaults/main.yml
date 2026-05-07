@@ -1,0 +1,5 @@
+---
+# defaults file for dperrone.apps.opa
+
+# Directory on the host where OPA policy files are stored (must be absolute)
+opa_policies_dir: /opt/opa/policies

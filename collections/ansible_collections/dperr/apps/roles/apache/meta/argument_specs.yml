@@ -1,0 +1,23 @@
+---
+# argument spec file for dperrone.apps.apache
+
+argument_specs:
+  main:
+    short_description: Run Apache httpd in a Podman container with a test web page.
+    options:
+      apache_web_root:
+        type: str
+        description: Absolute path on the host for the Apache document root.
+        default: "/var/www/apache"
+      apache_port:
+        type: int
+        description: Host port to expose the Apache container.
+        default: 8080
+      apache_test_page_heading:
+        type: str
+        description: Page heading (h1) and title for the test page. Set via AAP survey.
+        default: "Apache Test Page"
+      apache_test_page_message:
+        type: str
+        description: Main paragraph text for the test page. Set via AAP survey.
+        default: "If you can see this page, Apache is running correctly in the Podman container."

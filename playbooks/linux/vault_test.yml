@@ -1,0 +1,14 @@
+---
+
+- name: Test HashiCorp Vault Credential Injection
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Display the injected username
+      ansible.builtin.debug:
+        msg: "Success! Vault provided the username: {{ ansible_user }}"
+
+    - name: Display the injected password
+      ansible.builtin.debug:
+        msg: "Vault provided the password: {{ ansible_password }}"

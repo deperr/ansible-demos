@@ -1,0 +1,15 @@
+---
+
+# Full workflow: gather facts (install_app runs with gather_facts: false), install SQL Server, create DB.
+# Override with mssql_install_sql_server / mssql_create_database for partial runs.
+
+- name: Gather facts for MSSQL role
+  ansible.builtin.setup:
+
+- name: Install SQL Server
+  when: mssql_install_sql_server | default(true) | bool
+  ansible.builtin.import_tasks: install.yml
+
+- name: Create database
+  when: mssql_create_database | default(true) | bool
+  ansible.builtin.import_tasks: create_db.yml

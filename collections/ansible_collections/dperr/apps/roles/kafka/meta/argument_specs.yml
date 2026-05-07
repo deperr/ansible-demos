@@ -1,0 +1,35 @@
+---
+# argument spec file for dperrone.apps.kafka
+
+argument_specs:
+  main:
+    short_description: Install and configure Apache Kafka with ZooKeeper on a RHEL host.
+    options:
+      kafka_zookeeper_connect:
+        type: str
+        description: ZooKeeper connect string (e.g. localhost:2181).
+        default: "localhost:2181"
+      kafka_broker_id:
+        type: int
+        description: Broker ID (unique per broker in the cluster).
+        default: 1
+      kafka_version:
+        type: str
+        description: Apache Kafka version to install (e.g. 3.7.0).
+        default: "3.7.0"
+      kafka_install_dir:
+        type: str
+        description: Absolute path where Kafka is installed.
+        default: "/opt/kafka"
+      kafka_data_dir:
+        type: str
+        description: Absolute path for Kafka log storage (log.dirs).
+        default: "/var/lib/kafka"
+      kafka_port:
+        type: int
+        description: Broker listener port for clients.
+        default: 9092
+      java_package:
+        type: str
+        description: RHEL package name for Java (e.g. java-17-openjdk).
+        default: "java-17-openjdk"
