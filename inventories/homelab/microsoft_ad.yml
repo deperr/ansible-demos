@@ -1,6 +1,4 @@
----
-
 # Microsoft AD Inventory Plugin
 plugin: microsoft.ad.ldap
 
-search_base: OU=Computers,OU=lab,DC=dperrone,DC=dev
+search_base: OU=Computers,DC=dperrone,DC=dev
