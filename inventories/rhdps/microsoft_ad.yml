@@ -1,9 +1,0 @@
-plugin: microsoft.ad.ldap
-
-search_base: OU=Demo,DC=ansible,DC=local
-
-attributes:
-  dNSHostName: 
-    dns_host_name: this | upper
-  objectSid:
-    computer_sid:
