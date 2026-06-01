@@ -33,10 +33,10 @@
       ansible.builtin.debug:
         msg: "Injecting -> sshd: {{ break_sshd }}, login.defs: {{ break_login_defs }}, sysctl: {{ break_sysctl }}"
 
-    - name: Wait a random amount of time before injecting violations
-      run_once: true
-      ansible.builtin.wait_for:
-        timeout: "{{ range(delay_min | int * 60, delay_max | int * 60 + 1) | random }}"
+    # - name: Wait a random amount of time before injecting violations
+    #   run_once: true
+    #   ansible.builtin.wait_for:
+    #     timeout: "{{ range(delay_min | int * 60, delay_max | int * 60 + 1) | random }}"
 
     - name: "SSHD | Disable public key auth (STIG violation)"
       when: break_sshd | bool
