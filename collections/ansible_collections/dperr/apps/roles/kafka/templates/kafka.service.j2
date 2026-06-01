@@ -1,15 +1,16 @@
 [Unit]
-Description=Apache Kafka Server
-Documentation=https://kafka.apache.org/
-Requires=zookeeper.service
-After=zookeeper.service
+Description=Apache Kafka Server (KRaft)
+Documentation=http://kafka.apache.org/documentation.html
+Requires=network.target
+After=network.target
 
 [Service]
 Type=simple
-User=root
-Environment="JAVA_HOME={{ java_home }}"
-ExecStart={{ kafka_install_dir }}/bin/kafka-server-start.sh {{ kafka_install_dir }}/config/server.properties
-ExecStop={{ kafka_install_dir }}/bin/kafka-server-stop.sh
+User={{ kafka_user }}
+Group={{ kafka_user }}
+Environment="KAFKA_HEAP_OPTS=-Xmx1G -Xms1G"
+ExecStart={{ kafka_dir }}/bin/kafka-server-start.sh {{ kafka_dir }}/config/kraft/server.properties
+ExecStop={{ kafka_dir }}/bin/kafka-server-stop.sh
 Restart=on-abnormal
 
 [Install]

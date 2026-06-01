@@ -1,109 +1,97 @@
 ---
 
-- name: Install packages
+- name: Install Java (OpenJDK 17) and archiving tools
   ansible.builtin.dnf:
     name:
-      - java-11-openjdk
-      - firewalld
-      - python3-firewall
+      - java-17-openjdk
+      - tar
+      - gzip
     state: present
 
-- name: Create Kafka user and group
+- name: Create Kafka group
+  ansible.builtin.group:
+    name: "{{ kafka_user }}"
+    state: present
+
+- name: Create Kafka user
   ansible.builtin.user:
-    name: kafka
-    state: present
+    name: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
     system: true
-    home: "{{ kafka_install_dir }}"
+    create_home: false
 
-- name: Create Kafka installation directory
+- name: Create Kafka installation and data directories
+  loop:
+    - "{{ kafka_dir }}"
+    - "{{ kafka_data_dir }}"
   ansible.builtin.file:
-    path: "{{ kafka_install_dir }}"
+    path: "{{ item }}"
     state: directory
-    owner: kafka
-    group: kafka
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
     mode: '0755'
 
-- name: Create Kafka data directory
-  ansible.builtin.file:
-    path: "{{ kafka_data_dir }}"
-    state: directory
-    owner: kafka
-    group: kafka
-    mode: '0755'
-
-- name: Create Zookeeper data directory (for internal Zookeeper or KRaft)
-  ansible.builtin.file:
-    path: "{{ zookeeper_data_dir }}"
-    state: directory
-    owner: kafka
-    group: kafka
-    mode: '0755'
-
-- name: Download Kafka tarball
-  ansible.builtin.get_url:
-    url: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/kafka_{{ scala_version }}-{{ kafka_version }}.tgz"
-    dest: "/tmp/kafka_{{ scala_version }}-{{ kafka_version }}.tgz"
-    mode: '0644'
-
-- name: Extract Kafka tarball
+- name: Download and extract Apache Kafka (From Permanent Archive)
   ansible.builtin.unarchive:
-    src: "/tmp/kafka_{{ scala_version }}-{{ kafka_version }}.tgz"
-    dest: "{{ kafka_install_dir }}"
+    src: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/kafka_{{ scala_version }}-{{ kafka_version }}.tgz"
+    dest: "{{ kafka_dir }}"
     remote_src: true
-    owner: kafka
-    group: kafka
-    extra_opts: [--strip-components=1] # Extracts content directly into kafka_install_dir
+    extra_opts:
+      - --strip-components=1
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_user }}"
+    creates: "{{ kafka_dir }}/bin/kafka-server-start.sh"
 
-- name: Configure server.properties (for Zookeeper-based Kafka)
-  when: kafka_mode == 'zookeeper'
-  notify: Start kafka
-  ansible.builtin.template:
-    src: templates/server.properties.j2
-    dest: "{{ kafka_install_dir }}/config/server.properties"
-    owner: kafka
-    group: kafka
-    mode: '0644'
+- name: Configure KRaft properties (Network, IP, and Logging)
+  loop: "{{ kafka_kraft_properties | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  ansible.builtin.lineinfile:
+    path: "{{ kafka_dir }}/config/kraft/server.properties"
+    regexp: "^#?{{ item.key | regex_escape() }}="
+    line: "{{ item.key }}={{ item.value }}"
 
-- name: Configure server.properties (for KRaft-based Kafka)
-  when: kafka_mode == 'kraft'
-  notify: Start kafka
-  ansible.builtin.template:
-    src: templates/kraft_server.properties.j2
-    dest: "{{ kafka_install_dir }}/config/kraft/server.properties"
-    owner: kafka
-    group: kafka
-    mode: '0644'
+- name: Check if KRaft storage is already formatted
+  register: kraft_meta
+  ansible.builtin.stat:
+    path: "{{ kafka_data_dir }}/meta.properties"
 
-- name: Create Zookeeper systemd service file
-  notify: Start zookeeper
-  ansible.builtin.template:
-    src: templates/zookeeper.service.j2
-    dest: /etc/systemd/system/zookeeper.service
-    owner: root
-    group: root
-    mode: '0644'
+- name: Generate Kafka Cluster UUID
+  register: kafka_uuid
+  when: not kraft_meta.stat.exists
+  become_user: "{{ kafka_user }}"
+  ansible.builtin.command: "{{ kafka_dir }}/bin/kafka-storage.sh random-uuid"
 
-- name: Create Kafka systemd service file
-  notify: Start kafka
+- name: Format KRaft storage
+  when: not kraft_meta.stat.exists
+  become_user: "{{ kafka_user }}"
+  ansible.builtin.command: >
+    {{ kafka_dir }}/bin/kafka-storage.sh format
+    -t {{ kafka_uuid.stdout }}
+    -c {{ kafka_dir }}/config/kraft/server.properties
+
+- name: Create Kafka systemd service
+  notify: Reload systemd
   ansible.builtin.template:
-    src: templates/kafka.service.j2
+    src: kafka.service.j2
     dest: /etc/systemd/system/kafka.service
     owner: root
     group: root
     mode: '0644'
 
-- name: Reload systemd daemon
+- name: Start and enable Kafka service
   ansible.builtin.systemd:
+    name: kafka
+    state: started
+    enabled: true
     daemon_reload: true
 
-- name: Manage firewall
-  ansible.builtin.include_tasks:
-    file: tasks/firewall.yml
-
-- name: Ensure services ready
-  ansible.builtin.meta: flush_handlers
-
-- name: Manage demo topic
-  when: demo_topic | default('') | length
-  ansible.builtin.include_tasks:
-    file: tasks/topic.yml
+- name: Open firewall ports for Kafka and KRaft Controller
+  loop:
+    - 9092/tcp
+    - 9093/tcp
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true

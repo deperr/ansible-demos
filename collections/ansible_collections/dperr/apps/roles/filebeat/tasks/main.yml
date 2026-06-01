@@ -1,0 +1,57 @@
+---
+
+- name: Import Elastic GPG Key
+  ansible.builtin.rpm_key:
+    key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
+
+- name: Add Elastic Yum Repository
+  ansible.builtin.yum_repository:
+    name: elastic-8.x
+    description: Elastic repository for 8.x packages
+    baseurl: https://artifacts.elastic.co/packages/8.x/yum
+    gpgcheck: true
+    gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    enabled: true
+
+- name: Install Filebeat
+  ansible.builtin.dnf:
+    name: filebeat
+    state: present
+
+- name: Configure Filebeat (Send STIG/auditd logs to Kafka)
+  notify: Restart Filebeat
+  ansible.builtin.template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Start and enable Filebeat service
+  ansible.builtin.systemd:
+    name: filebeat
+    state: started
+    enabled: true
+
+- name: Check which STIG audit watch paths exist on this host
+  register: stig_path_checks
+  loop: "{{ stig_audit_watches }}"
+  loop_control:
+    label: "{{ item.path }}"
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+
+- name: Build filtered list of audit watches for existing paths
+  ansible.builtin.set_fact:
+    stig_audit_watches_active: >-
+      {{ stig_path_checks.results | selectattr('stat.exists') | map(attribute='item') | list }}
+
+- name: Deploy STIG file monitoring rules for EDA
+  notify: Reload auditd rules
+  ansible.builtin.template:
+    src: eda-stig.rules.j2
+    dest: /etc/audit/rules.d/eda-stig.rules
+    owner: root
+    group: root
+    mode: '0600'

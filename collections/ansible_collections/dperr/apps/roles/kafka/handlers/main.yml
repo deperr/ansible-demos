@@ -1,19 +1,5 @@
 ---
 
-- name: Start zookeeper
+- name: Reload systemd
   ansible.builtin.systemd:
-    name: zookeeper
-    state: started
-    enabled: true
-
-- name: Start kafka
-  ansible.builtin.systemd:
-    name: kafka
-    state: started
-    enabled: true
-
-- name: Start firewalld
-  ansible.builtin.systemd:
-    name: firewalld
-    state: started
-    enabled: true
+    daemon_reload: true

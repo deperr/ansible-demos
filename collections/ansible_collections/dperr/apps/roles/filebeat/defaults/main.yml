@@ -1,0 +1,86 @@
+---
+kafka_topic: "eda-topic"
+# Falls back to the dedicated broker when kafka_bind_ip is not supplied
+kafka_bind_ip: "{{ kafka_broker_host | default('web03.dperrone.dev') }}"
+
+# RHEL 9 STIG audit watch rules
+# Each entry: path, permissions (r/w/x/a), audit key
+stig_audit_watches:
+  # Authentication & access control
+  - path: /etc/shadow
+    perm: wa
+    key: shadow_monitor
+  - path: /etc/passwd
+    perm: wa
+    key: passwd_monitor
+  - path: /etc/group
+    perm: wa
+    key: group_monitor
+  - path: /etc/gshadow
+    perm: wa
+    key: gshadow_monitor
+  - path: /etc/sudoers
+    perm: wa
+    key: sudoers_monitor
+  - path: /etc/sudoers.d/
+    perm: wa
+    key: sudoers_d_monitor
+  - path: /etc/security/opasswd
+    perm: wa
+    key: opasswd_monitor
+
+  # PAM & login
+  - path: /etc/pam.d/
+    perm: wa
+    key: pam_monitor
+  - path: /etc/login.defs
+    perm: wa
+    key: login_defs_monitor
+
+  # SSH
+  - path: /etc/ssh/sshd_config
+    perm: wa
+    key: sshd_config_monitor
+  - path: /etc/ssh/sshd_config.d/
+    perm: wa
+    key: sshd_config_d_monitor
+
+  # Network
+  - path: /etc/hosts
+    perm: wa
+    key: hosts_monitor
+  - path: /etc/sysctl.conf
+    perm: wa
+    key: sysctl_monitor
+  - path: /etc/sysctl.d/
+    perm: wa
+    key: sysctl_d_monitor
+  - path: /etc/firewalld/
+    perm: wa
+    key: firewalld_monitor
+  - path: /etc/fstab
+    perm: wa
+    key: fstab_monitor
+
+  # System integrity
+  - path: /etc/audit/
+    perm: wa
+    key: audit_config_monitor
+  - path: /etc/rsyslog.conf
+    perm: wa
+    key: rsyslog_monitor
+  - path: /etc/rsyslog.d/
+    perm: wa
+    key: rsyslog_d_monitor
+  - path: /etc/chrony.conf
+    perm: wa
+    key: chrony_monitor
+  - path: /etc/postfix/main.cf
+    perm: wa
+    key: postfix_monitor
+
+  # SELinux
+  - path: /etc/selinux/config
+    perm: wa
+    key: selinux_monitor
+ 

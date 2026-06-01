@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# RHEL 9 STIG audit watch rules - monitor critical system files for modification
+# Only paths verified to exist on this host are included
+{% for watch in stig_audit_watches_active %}
+-w {{ watch.path }} -p {{ watch.perm }} -k {{ watch.key }}
+{% endfor %}
