@@ -1,0 +1,10 @@
+---
+
+- name: Deploy STIG-compliant sysctl parameters
+  notify: Reload sysctl
+  ansible.builtin.template:
+    src: stig-sysctl.conf.j2
+    dest: /etc/sysctl.d/99-stig.conf
+    owner: root
+    group: root
+    mode: '0644'

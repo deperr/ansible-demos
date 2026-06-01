@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+# RHEL 9 STIG-compliant kernel and network parameters
+# Deployed as a drop-in to /etc/sysctl.d/ so base sysctl.conf is not modified
+# Reference: DISA STIG Red Hat Enterprise Linux 9 v2r8
+
+{% for param in stig_sysctl_params %}
+{{ param.key }} = {{ param.value }}
+{% endfor %}

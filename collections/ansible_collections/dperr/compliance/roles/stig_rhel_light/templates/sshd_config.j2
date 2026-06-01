@@ -1,0 +1,72 @@
+# {{ ansible_managed }}
+# RHEL 9 STIG-compliant sshd configuration
+# Reference: DISA STIG Red Hat Enterprise Linux 9 v2r8
+
+# --- Network ---
+Port {{ sshd_port }}
+ListenAddress {{ sshd_listen_address }}
+Protocol 2
+
+# --- V-257994: Session key renegotiation ---
+RekeyLimit {{ sshd_rekey_limit }}
+
+# --- V-257989: FIPS 140-3 validated ciphers ---
+Ciphers {{ sshd_ciphers | join(',') }}
+
+# --- V-257991: FIPS 140-3 validated MACs ---
+MACs {{ sshd_macs | join(',') }}
+
+# --- FIPS-compliant key exchange ---
+KexAlgorithms {{ sshd_kex_algorithms | join(',') }}
+
+# --- V-257982: Logging ---
+SyslogFacility AUTHPRIV
+LogLevel {{ sshd_log_level }}
+
+# --- Authentication ---
+# V-257985: No direct root login
+PermitRootLogin no
+# V-257983: Accept public key authentication
+PubkeyAuthentication yes
+# V-257984: No blank passwords
+PermitEmptyPasswords no
+# V-257992: No host-based authentication
+HostbasedAuthentication no
+# V-257993: No user environment override
+PermitUserEnvironment no
+
+MaxAuthTries {{ sshd_max_auth_tries }}
+MaxSessions {{ sshd_max_sessions }}
+LoginGraceTime {{ sshd_login_grace_time }}
+StrictModes yes
+IgnoreRhosts yes
+IgnoreUserKnownHosts yes
+
+# --- V-257986: Enable PAM ---
+UsePAM yes
+
+# Disable less-secure authentication methods
+KerberosAuthentication no
+GSSAPIAuthentication no
+PasswordAuthentication no
+
+# --- V-257995 / V-257996: Terminate unresponsive sessions (10 min) ---
+ClientAliveInterval {{ sshd_client_alive_interval }}
+ClientAliveCountMax {{ sshd_client_alive_count_max }}
+
+# --- V-257981: DOD consent banner ---
+Banner {{ sshd_banner_path }}
+PrintMotd no
+PrintLastLog yes
+
+# --- Subsystems ---
+Subsystem sftp /usr/libexec/openssh/sftp-server
+
+# --- X11 ---
+X11Forwarding yes
+X11UseLocalhost yes
+
+# --- Misc hardening ---
+Compression no
+TCPKeepAlive yes
+UseDNS no

@@ -1,0 +1,10 @@
+---
+
+- name: Apply STIG-compliant sshd configuration
+  ansible.builtin.include_tasks: sshd.yml
+
+- name: Apply STIG-compliant login.defs
+  ansible.builtin.include_tasks: login_defs.yml
+
+- name: Apply STIG-compliant sysctl hardening
+  ansible.builtin.include_tasks: sysctl.yml

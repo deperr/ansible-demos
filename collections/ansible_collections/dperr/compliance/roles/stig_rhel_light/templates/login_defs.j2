@@ -1,0 +1,40 @@
+# {{ ansible_managed }}
+# RHEL 9 STIG-compliant login.defs
+# Reference: DISA STIG Red Hat Enterprise Linux 9 v2r8
+
+# --- Password aging controls ---
+# V-257847: Maximum password age
+PASS_MAX_DAYS   {{ stig_pass_max_days }}
+# V-257849: Minimum password age
+PASS_MIN_DAYS   {{ stig_pass_min_days }}
+# V-257853: Minimum password length
+PASS_MIN_LEN    {{ stig_pass_min_len }}
+# V-257851: Password expiration warning
+PASS_WARN_AGE   {{ stig_pass_warn_age }}
+
+# --- Encryption ---
+# V-257857: Password hashing algorithm
+ENCRYPT_METHOD  {{ stig_encrypt_method }}
+
+# --- Account defaults ---
+# V-257861: Default umask
+UMASK           {{ stig_umask }}
+# V-257863: Create home directory on user creation
+CREATE_HOME     {{ stig_create_home }}
+
+# --- Login failure delay (seconds) ---
+FAIL_DELAY      {{ stig_fail_delay }}
+
+# --- UID/GID ranges ---
+UID_MIN         {{ stig_uid_min }}
+UID_MAX         60000
+SYS_UID_MIN     201
+SYS_UID_MAX     999
+GID_MIN         {{ stig_uid_min }}
+GID_MAX         60000
+SYS_GID_MIN     201
+SYS_GID_MAX     999
+
+# --- Misc ---
+USERGROUPS_ENAB yes
+LOG_OK_LOGINS   yes

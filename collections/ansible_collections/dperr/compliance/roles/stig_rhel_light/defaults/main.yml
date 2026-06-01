@@ -1,0 +1,135 @@
+---
+# RHEL 9 STIG v2r8 - Hardening defaults
+
+# ============================================================
+# Remediation mapping: audit key -> tasks_from file
+# Used by the remediation playbook to target specific configs
+# ============================================================
+stig_remediation_map:
+  sshd_config_monitor: sshd.yml
+  sshd_config_d_monitor: sshd.yml
+  login_defs_monitor: login_defs.yml
+  sysctl_monitor: sysctl.yml
+  sysctl_d_monitor: sysctl.yml
+
+# ============================================================
+# login.defs (V-257847, V-257849, V-257853, V-257857, V-257861)
+# ============================================================
+stig_pass_max_days: 60
+stig_pass_min_days: 1
+stig_pass_min_len: 15
+stig_pass_warn_age: 7
+stig_encrypt_method: "SHA512"
+stig_umask: "077"
+stig_create_home: "yes"
+stig_fail_delay: 4
+stig_uid_min: 1000
+
+# ============================================================
+# sysctl kernel & network hardening
+# ============================================================
+stig_sysctl_params:
+  - key: net.ipv4.conf.all.accept_source_route
+    value: 0
+  - key: net.ipv4.conf.default.accept_source_route
+    value: 0
+  - key: net.ipv4.conf.all.accept_redirects
+    value: 0
+  - key: net.ipv4.conf.default.accept_redirects
+    value: 0
+  - key: net.ipv4.conf.all.send_redirects
+    value: 0
+  - key: net.ipv4.conf.default.send_redirects
+    value: 0
+  - key: net.ipv4.conf.all.log_martians
+    value: 1
+  - key: net.ipv4.icmp_echo_ignore_broadcasts
+    value: 1
+  - key: net.ipv4.tcp_syncookies
+    value: 1
+  - key: net.ipv6.conf.all.accept_source_route
+    value: 0
+  - key: net.ipv6.conf.default.accept_source_route
+    value: 0
+  - key: net.ipv6.conf.all.accept_redirects
+    value: 0
+  - key: net.ipv6.conf.default.accept_redirects
+    value: 0
+  - key: kernel.randomize_va_space
+    value: 2
+
+# ============================================================
+# SSH configuration defaults
+# ============================================================
+
+sshd_port: 22
+sshd_listen_address: "0.0.0.0"
+sshd_banner_path: "/etc/issue"
+
+# V-257989 - FIPS 140-3 validated ciphers
+sshd_ciphers:
+  - aes256-ctr
+  - aes192-ctr
+  - aes128-ctr
+  - aes256-gcm@openssh.com
+  - aes128-gcm@openssh.com
+
+# V-257991 - FIPS 140-3 validated MACs
+sshd_macs:
+  - hmac-sha2-512
+  - hmac-sha2-256
+  - hmac-sha2-512-etm@openssh.com
+  - hmac-sha2-256-etm@openssh.com
+
+# FIPS-compliant key exchange algorithms
+sshd_kex_algorithms:
+  - ecdh-sha2-nistp256
+  - ecdh-sha2-nistp384
+  - ecdh-sha2-nistp521
+  - diffie-hellman-group14-sha256
+  - diffie-hellman-group16-sha512
+  - diffie-hellman-group18-sha512
+
+# V-257994 - Session key renegotiation
+sshd_rekey_limit: "1G 1h"
+
+# V-257995 / V-257996 - Idle session timeout (interval * count = 600s = 10 min)
+sshd_client_alive_interval: 600
+sshd_client_alive_count_max: 1
+
+# V-257982 - Logging
+sshd_log_level: "VERBOSE"
+
+# Authentication limits
+sshd_max_auth_tries: 4
+sshd_max_sessions: 10
+sshd_login_grace_time: 60
+
+# DOD banner content (V-257981)
+sshd_banner_content: |
+  You are accessing a U.S. Government (USG) Information System (IS) that is
+  provided for USG-authorized use only.
+
+  By using this IS (which includes any device attached to this IS), you consent
+  to the following conditions:
+
+  -The USG routinely intercepts and monitors communications on this IS for
+  purposes including, but not limited to, penetration testing, COMSEC monitoring,
+  network operations and defense, personnel misconduct (PM), law enforcement
+  (LE), and counterintelligence (CI) investigations.
+
+  -At any time, the USG may inspect and seize data stored on this IS.
+
+  -Communications using, or data stored on, this IS are not private, are subject
+  to routine monitoring, interception, and search, and may be disclosed or used
+  for any USG-authorized purpose.
+
+  -This IS includes security measures (e.g., authentication and access controls)
+  to protect USG interests--not for your personal benefit or privacy.
+
+  -Notwithstanding the above, using this IS does not constitute consent to PM, LE
+  or CI investigative searching or monitoring of the content of privileged
+  communications, or work product, related to personal representation or services
+  by attorneys, psychotherapists, or clergy, and their assistants. Such
+  communications and work product are private and confidential. See User
+  Agreement for details.
