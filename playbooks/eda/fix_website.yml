@@ -1,0 +1,57 @@
+---
+
+- name: Restore website
+  hosts: "{{ target_server }} | default(omit)"
+  gather_facts: false
+  become: false
+  vars:
+    volume_path: podman
+
+  tasks:
+    - name: Send debug message that the website is down
+      ansible.builtin.debug:
+        msg: "Website is being restored"
+
+    - name: Ensure podman directory exists
+      ansible.builtin.file:
+        path: "{{ volume_path }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure 8081/tcp is open in firewalld
+      become: true
+      ansible.posix.firewalld:
+        port: 8081/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+
+    - name: Fix the webservice container
+      containers.podman.podman_container:
+        name: apache
+        image: docker.io/httpd
+        state: started
+        volume:
+          - "{{ volume_path }}:/usr/local/apache2/htdocs:z"
+        ports:
+          - "8081:80"
+
+    - name: Check the web page
+      register: web_output
+      changed_when: false
+      ansible.builtin.uri:
+        url: http://127.0.0.1:8081
+        return_content: true
+
+    - name: Register output of podman ps
+      register: podman_output
+      changed_when: false
+      ansible.builtin.command: podman ps
+
+    - name: Output
+      ansible.builtin.debug:
+        msg:
+          - "Output of podman ps command:"
+          - "{{ podman_output.stdout_lines }}"
+          - "Contents of web page:"
+          - "{{ web_output.content }}"

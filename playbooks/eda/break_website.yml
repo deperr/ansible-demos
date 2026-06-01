@@ -1,0 +1,17 @@
+---
+
+- name: Break website
+  hosts: "{{ _hosts | default(omit) }}"
+  gather_facts: false
+  become: false
+
+  tasks:
+    - name: Break the web service container
+      containers.podman.podman_container:
+        name: apache
+        image: docker.io/httpd
+        state: stopped
+
+    - name: Send debug message that the website is down
+      ansible.builtin.debug:
+        msg: "Website is down!"
