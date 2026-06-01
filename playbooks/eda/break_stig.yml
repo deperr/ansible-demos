@@ -1,0 +1,60 @@
+---
+
+- name: Inject STIG Violations for EDA Demo
+  hosts: "{{ _hosts | default(omit) }}"
+  become: true
+
+  vars:
+    # Which violations to inject. These can be set to true/false/random.
+    # Using true or false will force the playbook to act a specific way.
+    break_sshd: random
+    break_login_defs: random
+    break_sysctl: random
+    # Random delay range in minutes (1-10 by default)
+    delay_min: 1
+    delay_max: 10
+
+  tasks:
+
+    - name: Pick a random violation index
+      run_once: true
+      ansible.builtin.set_fact:
+        violation_pick: "{{ range(0, 3) | random }}"
+
+    - name: Set violation flags from the pick
+      run_once: true
+      ansible.builtin.set_fact:
+        break_sshd: "{{ violation_pick == '0' }}"
+        break_login_defs: "{{ violation_pick == '1' }}"
+        break_sysctl: "{{ violation_pick == '2' }}"
+
+    - name: Show which violations will be injected
+      run_once: true
+      ansible.builtin.debug:
+        msg: "Injecting -> sshd: {{ break_sshd }}, login.defs: {{ break_login_defs }}, sysctl: {{ break_sysctl }}"
+
+    - name: Wait a random amount of time before injecting violations
+      run_once: true
+      ansible.builtin.wait_for:
+        timeout: "{{ range(delay_min | int * 60, delay_max | int * 60 + 1) | random }}"
+
+    - name: "SSHD | Disable public key auth (STIG violation)"
+      when: break_sshd | bool
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^PubkeyAuthentication'
+        line: 'PubkeyAuthentication no'
+
+    - name: "LOGIN.DEFS | Set password max age to unlimited (STIG violation)"
+      when: break_login_defs | bool
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^PASS_MAX_DAYS'
+        line: 'PASS_MAX_DAYS   99999'
+
+    - name: "SYSCTL | Disable ASLR (STIG violation)"
+      when: break_sysctl | bool
+      ansible.builtin.lineinfile:
+        path: /etc/sysctl.d/99-stig.conf
+        regexp: '^kernel.randomize_va_space'
+        line: 'kernel.randomize_va_space = 0'
