@@ -1,0 +1,14 @@
+---
+
+- name: Setup Event-Driven Ansible Demo (Kafka & Filebeat)
+  hosts: "{{ _hosts | default(omit) }}"
+  become: true
+
+  tasks:
+    - name: Call the Kafka role
+      ansible.builtin.include_role:
+        name: dperr.apps.kafka
+
+    - name: Call the Filebeat role
+      ansible.builtin.include_role:
+        name: dperr.apps.filebeat
