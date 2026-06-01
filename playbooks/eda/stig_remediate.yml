@@ -1,0 +1,55 @@
+---
+
+- name: STIG Remediation Action
+  hosts: "{{ target_server }}"
+  become: true
+
+  vars:
+    # Map audit keys to remediation task files
+    stig_key_to_task:
+      - key: sshd_config_monitor
+        task: sshd.yml
+      - key: sshd_config_d_monitor
+        task: sshd.yml
+      - key: login_defs_monitor
+        task: login_defs.yml
+      - key: sysctl_monitor
+        task: sysctl.yml
+      - key: sysctl_d_monitor
+        task: sysctl.yml
+
+  tasks:
+
+    - name: Show raw event for troubleshooting
+      ansible.builtin.debug:
+        msg: "RAW EVENT: {{ offending_message }}"
+
+    - name: Determine remediation task from the audit key
+      ansible.builtin.set_fact:
+        remediation_task: >-
+          {{ stig_key_to_task | selectattr('key', 'in', offending_message) | map(attribute='task') | first | default('') }}
+
+    - name: Log the incident locally
+      ansible.builtin.command: >-
+        logger 'AAP Automated Remediation triggered on {{ inventory_hostname }} - task={{ remediation_task | default("none") }}'
+
+    - name: Show the event data in the AAP Job Logs
+      ansible.builtin.debug:
+        msg: >
+          An unauthorized change was detected on {{ inventory_hostname }}.
+          Matched remediation task: {{ remediation_task | default('none - manual review required') }}.
+          Raw event: {{ offending_message }}
+
+    - name: Run targeted STIG remediation
+      when: remediation_task | length > 0
+      ansible.builtin.include_role:
+        name: dperr.compliance.stig_rhel_light
+        tasks_from: "{{ remediation_task }}"
+
+    - name: Alert on changes with no auto-remediation
+      when: remediation_task | length == 0
+      ansible.builtin.debug:
+        msg: >
+          STIG ALERT: Change detected on {{ inventory_hostname }} but no
+          auto-remediation template matched. Manual review required.
+          Raw event: {{ offending_message }}
