@@ -10,6 +10,8 @@
     break_sshd: random
     break_login_defs: random
     break_sysctl: random
+    # Set to true for a random delay before execution, false to run immediately
+    enable_delay: true
     # Random delay range in minutes (1-10 by default)
     delay_min: 1
     delay_max: 10
@@ -33,10 +35,11 @@
       ansible.builtin.debug:
         msg: "Injecting -> sshd: {{ break_sshd }}, login.defs: {{ break_login_defs }}, sysctl: {{ break_sysctl }}"
 
-    # - name: Wait a random amount of time before injecting violations
-    #   run_once: true
-    #   ansible.builtin.wait_for:
-    #     timeout: "{{ range(delay_min | int * 60, delay_max | int * 60 + 1) | random }}"
+    - name: Wait a random amount of time before injecting violations
+      when: enable_delay | bool
+      run_once: true
+      ansible.builtin.wait_for:
+        timeout: "{{ range(delay_min | int * 60, delay_max | int * 60 + 1) | random }}"
 
     - name: "SSHD | Disable public key auth (STIG violation)"
       when: break_sshd | bool
