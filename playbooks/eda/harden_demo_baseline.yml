@@ -1,0 +1,10 @@
+---
+
+- name: Apply hardended baseline (not fully STIG compliant)
+  hosts: "{{ _hosts | default(omit) }}"
+  become: true
+
+  tasks:
+    - name: Apply hardened configurations
+      ansible.builtin.include_role:
+        name: dperr.compliance.stig_rhel_light
