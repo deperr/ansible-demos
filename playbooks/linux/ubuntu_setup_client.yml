@@ -19,4 +19,4 @@
 
     - name: Configure Ubuntu client for local package (apt) server
       ansible.builtin.include_role:
-        name: "dperr.ubuntu.config_ubuntu_mirrors"
+        name: "dperr.linux.config_ubuntu_mirrors"
