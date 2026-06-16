@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: aap-ubuntu
+  description: Configure Ubuntu apt to use internal mirrors (Ubuntu, Docker CE) and optionally lock out external sources.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - apt
+    - ubuntu
+    - mirror
+    - docker
+
+dependencies: []

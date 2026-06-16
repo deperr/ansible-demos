@@ -1,0 +1,12 @@
+---
+
+- name: Configure Ubuntu package (apt) mirror server
+  hosts: "{{ _hosts | default(omit) }}"
+  become: true
+  gather_facts: true
+
+  tasks:
+
+    - name: Configure Ubuntu client for local package (apt) server
+      ansible.builtin.include_role:
+        name: "dperr.linux.config_ubuntu_server"

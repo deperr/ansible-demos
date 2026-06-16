@@ -1,0 +1,19 @@
+---
+
+- name: Fail when not Ubuntu
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == "Ubuntu"
+    fail_msg: "Role config_client_mirrors supports Ubuntu only (got {{ ansible_distribution }})."
+
+- name: Configure Ubuntu mirror
+  when: "'ubuntu' in config_client_mirrors_profiles"
+  ansible.builtin.include_tasks: ubuntu_mirror.yml
+
+- name: Configure Docker CE mirror
+  when: "'docker_ce' in config_client_mirrors_profiles"
+  ansible.builtin.include_tasks: docker_mirror.yml
+
+- name: Remove external sources
+  when: config_client_mirrors_external_sources_enabled | default(false) | bool
+  ansible.builtin.include_tasks: external_sources.yml
