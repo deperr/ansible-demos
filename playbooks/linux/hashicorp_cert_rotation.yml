@@ -1,0 +1,107 @@
+---
+
+- name: "Automated Certificate Lifecycle"
+  hosts: "{{ _hosts | default('web02.dperrone.dev') }}"
+  become: true
+  gather_facts: true
+  vars:
+    cert_dir: "/etc/pki/tls/certs"
+    key_dir: "/etc/pki/tls/private"
+    domain_name: "{{ inventory_hostname }}"
+
+  tasks:
+    - name: Ensure secure system directories exist on the target host
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+      loop:
+        - "{{ cert_dir }}"
+        - "{{ key_dir }}"
+
+    - name: Check for existing certificate on target host
+      register: existing_cert
+      ignore_errors: true
+      ansible.builtin.slurp:
+        src: "{{ cert_dir }}/{{ domain_name }}.crt"
+
+    - name: Issue certificate and key from HashiCorp Vault PKI engine
+      register: vault_cert
+      delegate_to: localhost
+      become: false
+      hashicorp.vault.pki_certificate:
+        state: issued
+        engine_mount_point: pki
+        role_name: "{{ vault_pki_role }}"
+        common_name: "{{ domain_name }}"
+        alt_names:
+          - "{{ domain_name }}"
+        url: "{{ vault_url }}"
+        auth_method: token
+        token: "{{ vault_token }}"
+
+    - name: Extract serial number from previous certificate
+      register: revoked_cert
+      when: existing_cert is succeeded
+      changed_when: false
+      ansible.builtin.shell:
+        cmd: openssl x509 -noout -serial -in {{ cert_dir }}/{{ domain_name }}.crt | cut -d= -f2 | sed 's/../&:/g' | sed 's/:$//' | tr 'A-F' 'a-f'
+
+    - name: Revoke previous certificate in Vault
+      when: existing_cert is succeeded
+      delegate_to: localhost
+      become: false
+      hashicorp.vault.pki_certificate:
+        state: revoked
+        engine_mount_point: pki
+        certificate: "{{ existing_cert['content'] | b64decode }}"
+        url: "{{ vault_url }}"
+        auth_method: token
+        token: "{{ vault_token }}"
+
+    - name: Write the private key to target host
+      ansible.builtin.copy:
+        content: "{{ vault_cert.data.private_key }}"
+        dest: "{{ key_dir }}/{{ domain_name }}.key"
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Write the signed public certificate to target host
+      ansible.builtin.copy:
+        content: "{{ vault_cert.data.certificate }}"
+        dest: "{{ cert_dir }}/{{ domain_name }}.crt"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Write the issuing CA certificate chain to target host
+      ansible.builtin.copy:
+        content: "{{ vault_cert.data.issuing_ca }}"
+        dest: "{{ cert_dir }}/ca_chain.crt"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Verify certificate chain of trust
+      register: cert_verify
+      changed_when: false
+      ansible.builtin.command:
+        cmd: >-
+          openssl verify
+          -CAfile {{ cert_dir }}/ca_chain.crt
+          {{ cert_dir }}/{{ domain_name }}.crt
+
+    - name: Certificate lifecycle complete
+      ansible.builtin.debug:
+        msg:
+          - "Certificate issued successfully for {{ domain_name }}"
+          - "Revoked serial: {{ revoked_cert.stdout | default('N/A: no previous certificate') }}"
+          - "New Serial: {{ vault_cert.data.serial_number }}"
+          - "Expiration: {{ '%b %d %Y %I:%M:%S %p %Z' | strftime(vault_cert.data.expiration) }}"
+          - "Chain verification: {{ cert_verify.stdout }}"
+          - "Certificate: {{ cert_dir }}/{{ domain_name }}.crt"
+          - "Private key: {{ key_dir }}/{{ domain_name }}.key"
+          - "CA chain: {{ cert_dir }}/ca_chain.crt"

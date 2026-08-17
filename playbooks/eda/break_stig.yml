@@ -26,9 +26,9 @@
     - name: Set violation flags from the pick
       run_once: true
       ansible.builtin.set_fact:
-        break_sshd: "{{ violation_pick == '0' }}"
-        break_login_defs: "{{ violation_pick == '1' }}"
-        break_sysctl: "{{ violation_pick == '2' }}"
+        break_sshd: "{{ violation_pick | int == 0 }}"
+        break_login_defs: "{{ violation_pick | int == 1 }}"
+        break_sysctl: "{{ violation_pick | int == 2 }}"
 
     - name: Show which violations will be injected
       run_once: true
