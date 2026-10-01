@@ -7,6 +7,11 @@
     win2022STIG_stigrule_254276_Manage: false  # noqa var-naming
 
   tasks:
+
+    - name: Configure system classification banner
+      ansible.builtin.include_role:
+        name: dperr.windows.system_banner
+
     - name: Include win2022STIG role
       ansible.builtin.include_role:
         name: dperr.compliance.stig_win2022
