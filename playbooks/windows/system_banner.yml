@@ -1,0 +1,10 @@
+---
+
+- name: STIG a Windows 2022 Server
+  hosts: "{{ _hosts | default('os_windows') }}"
+
+  tasks:
+
+    - name: Configure system classification banner
+      ansible.builtin.include_role:
+        name: dperr.windows.system_banner

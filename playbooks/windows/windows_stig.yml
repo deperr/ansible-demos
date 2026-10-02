@@ -1,7 +1,7 @@
 ---
 
 - name: STIG a Windows 2022 Server
-  hosts: "{{ HOSTS | default('os_windows') }}"
+  hosts: "{{ _hosts | default('os_windows') }}"
   vars:
     win2022STIG_stigrule_254269_Manage: false  # noqa var-naming
     win2022STIG_stigrule_254276_Manage: false  # noqa var-naming
