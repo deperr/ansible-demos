@@ -23,7 +23,7 @@
 
     - name: Resolve the ticket
       vars:
-        snow_ticket_note: "Resolved automatically — no human touched this ticket."
+        snow_ticket_note: "Resolved automatically: No human touched this ticket."
         snow_ticket_close_notes: |
           Provisioned and patched by Ansible Automation Platform.
 

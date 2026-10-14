@@ -1,0 +1,64 @@
+---
+
+- name: Escalate the ticket to a human
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../../vars/snow_ec2.yml
+
+  pre_tasks:
+    - name: Confirm we know which ticket to escalate
+      ansible.builtin.assert:
+        that:
+          - snow_sys_id | default("", true) | length > 0
+        fail_msg: >-
+          snow_sys_id is missing. If first node itself failed there is no ticket to
+          escalate, and the failure is visible in the AAP job output instead. Only
+          wire this node downstream of nodes that run after the ticket exists.
+        quiet: true
+
+  tasks:
+
+    - name: Work out how far the run got
+      ansible.builtin.set_fact:
+        failed_stage: >-
+          {{ 'provisioning the instance' if (ec2_instance_id | default('', true) | length == 0)
+             else ('patching' if patch_count is not defined
+             else ('reboot or verification' if (verify_systemd | default('', true) | length == 0)
+             else 'closing the ticket')) }}
+
+    - name: Escalate the indcident ticket
+      ansible.builtin.include_role:
+        name: dperr.itsm.servicenow
+        tasks_from: escalate
+      vars:
+        snow_ticket_note: |
+          AUTOMATION FAILED: This ticket needs a human.
+
+          The workflow stopped while {{ failed_stage }}.
+          Urgency raised and the ticket left open deliberately; the work did not finish.
+
+          What completed:
+          - Instance: {{ ec2_instance_id | default('NOT CREATED') }}
+          - Address: {{ ec2_public_ip | default('', true) or ec2_private_ip | default('n/a') }}
+          - Packages updated: {{ patch_count | default('did not reach patching') }}
+          - Reboot/verify: {{ verify_systemd | default('did not reach verification') }}
+
+          Request:
+          - Hostname: {{ create_vm_vm_name }}
+          - Blueprint: {{ vm_blueprint }}
+          - Region: {{ create_vm_aws_region }}
+
+          Full output is in AAP job {{ awx_job_id | default('(unknown)') }}.
+          {% if ec2_instance_id | default('', true) | length > 0 %}
+          NOTE: instance {{ ec2_instance_id }} is still running and still costing money.
+          {% endif %}
+
+    - name: Summarize information for debug message
+      ansible.builtin.debug:
+        msg:
+          - "Ticket {{ snow_number | default(snow_sys_id) }} escalated — left OPEN."
+          - "Stopped while: {{ failed_stage }}"
+          - "Instance left behind: {{ ec2_instance_id | default('none') }}"
