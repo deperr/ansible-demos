@@ -4,6 +4,6 @@
 - name: Refuse to run without an explicit action
   ansible.builtin.fail:
     msg: >-
-      The snow_ticket role must be invoked with an explicit action, e.g.
-      `include_role: {name: snow_ticket, tasks_from: note}`.
+      The dperr.itsm.servicenow role must be invoked with an explicit action, e.g.
+      `include_role: {name: dperr.itsm.servicenow, tasks_from: note}`.
       Available actions: open, note.

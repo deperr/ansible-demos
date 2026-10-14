@@ -6,7 +6,7 @@
   connection: local
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   pre_tasks:
 
@@ -43,7 +43,7 @@
   gather_facts: true
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   tasks:
     - name: Note the pre-reboot state
@@ -77,7 +77,7 @@
 
     - name: Report the outcome to the ticket
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: note
       vars:
         snow_ticket_note: |

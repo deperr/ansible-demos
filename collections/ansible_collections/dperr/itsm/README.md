@@ -1,4 +1,7 @@
-# Role: itsm
+# Collection: dperr.itsm
+
+Contains one role, `dperr.itsm.servicenow`, which wraps the `servicenow.itsm`
+collection for ticket writes from AAP automation.
 
 The role intentionally has **no default action**. Always name one with `tasks_from:`, so that grepping
 for `tasks_from:` finds every place a ticket is touched.
@@ -10,7 +13,7 @@ for `tasks_from:` finds every place a ticket is touched.
 ```yaml
 - name: Open the ticket
   ansible.builtin.include_role:
-    name: snow_ticket
+    name: dperr.itsm.servicenow
     tasks_from: open
   vars:
     snow_ticket_short_description: "Provision & patch EC2 instance: web-demo-01"
@@ -29,7 +32,7 @@ during the workflow.
 ```yaml
 - name: Say what we're doing
   ansible.builtin.include_role:
-    name: snow_ticket
+    name: dperr.itsm.servicenow
     tasks_from: note
   vars:
     snow_ticket_note: "Instance reachable. Applying all available updates…"
@@ -42,7 +45,7 @@ artifact), in that order.
 
 ```yaml
 - ansible.builtin.include_role:
-    name: snow_ticket
+    name: dperr.itsm.servicenow
     tasks_from: resolve
   vars:
     snow_ticket_close_notes: "…"
@@ -60,7 +63,7 @@ the collection ships an older list and otherwise logs
 
 ```yaml
 - ansible.builtin.include_role:
-    name: snow_ticket
+    name: dperr.itsm.servicenow
     tasks_from: escalate
   vars:
     snow_ticket_note: "…"

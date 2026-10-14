@@ -6,7 +6,7 @@
   connection: local
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   pre_tasks:
     - name: Require something to identify the instance

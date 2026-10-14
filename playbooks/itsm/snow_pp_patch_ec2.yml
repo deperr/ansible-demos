@@ -6,7 +6,7 @@
   connection: local
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   pre_tasks:
 
@@ -54,7 +54,7 @@
   gather_facts: true
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   tasks:
     - name: Wait for SSH connection to come up
@@ -68,7 +68,7 @@
           ({{ ansible_distribution }} {{ ansible_distribution_version }},
           kernel {{ ansible_kernel }}). Applying all available updates…
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: note
 
     - name: Record the start time
@@ -125,7 +125,7 @@
           - Duration: {{ (patch_seconds | int // 60) }}m {{ (patch_seconds | int % 60) }}s
           - OS: {{ ansible_distribution }} {{ ansible_distribution_version }}, kernel {{ ansible_kernel }}
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: note
 
     - name: Summarize for debug information.

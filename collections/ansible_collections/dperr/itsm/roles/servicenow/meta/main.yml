@@ -1,6 +1,6 @@
 ---
 galaxy_info:
-  role_name: itsm
+  role_name: servicenow
   author: Dennis Perrone
   description: Create and update ServiceNow tickets from AAP automation.
   license: MIT

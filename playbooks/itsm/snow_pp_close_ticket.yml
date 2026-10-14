@@ -6,7 +6,7 @@
   connection: local
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   pre_tasks:
 
@@ -37,7 +37,7 @@
           - System state: {{ verify_systemd | default('unknown') }}
           - AAP job: {{ awx_job_id | default('local run') }}
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: resolve
 
     - name: Summarize information for debug

@@ -6,7 +6,7 @@
   connection: local
 
   vars_files:
-    - ../vars/snow_ec2.yml
+    - ../../vars/snow_ec2.yml
 
   pre_tasks:
   
@@ -192,7 +192,7 @@
 
     - name: Record instance details on the ticket
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: note
       vars:
         snow_ticket_note: |
