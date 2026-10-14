@@ -1,0 +1,99 @@
+---
+
+- name: Select the target
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../vars/snow_ec2.yml
+
+  pre_tasks:
+
+    - name: Confirm the upstream artifacts arrived
+      ansible.builtin.assert:
+        that:
+          - snow_sys_id | default("", true) | length > 0
+          - ec2_instance_id | default("", true) | length > 0
+          - (ec2_connect_ip | default("", true) | length > 0)
+            or (ec2_public_ip | default("", true) | length > 0)
+            or (ec2_private_ip | default("", true) | length > 0)
+        fail_msg: >-
+          Missing upstream artifacts. This playbook runs after patch_instance.yml in a
+          workflow and needs snow_sys_id, ec2_instance_id and an IP address.
+        quiet: true
+
+  tasks:
+
+    - name: Decide which address to connect to
+      ansible.builtin.set_fact:
+        ec2_target_ip: >-
+          {{ ec2_connect_ip | default('', true)
+             or ec2_public_ip | default('', true)
+             or ec2_private_ip }}
+
+    - name: Add the instance to the in-memory inventory
+      ansible.builtin.add_host:
+        name: "{{ ec2_target_ip }}"
+        groups: patch_target
+        ansible_user: "{{ create_vm_remote_user | default(omit, true) }}"
+
+- name: Reboot if required, then verify
+  hosts: patch_target
+  gather_facts: true
+
+  vars_files:
+    - ../vars/snow_ec2.yml
+
+  tasks:
+    - name: Note the pre-reboot state
+      ansible.builtin.set_fact:
+        kernel_before: "{{ ansible_kernel }}"
+
+    - name: Reboot
+      become: true
+      when: reboot_required | default(false) | bool
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ ec2_reboot_timeout | default(600) }}"
+        msg: "Rebooting after patching, initiated by Ansible Automation Platform"
+
+    - name: Re-read facts after the reboot
+      ansible.builtin.setup:
+      when: reboot_required | default(false) | bool
+
+    - name: Confirm the system is up and systemd is running  # noqa: command-instead-of-module
+      register: systemd_state
+      changed_when: false
+      failed_when: systemd_state.rc not in [0, 1]
+      ansible.builtin.command: systemctl is-system-running --wait
+
+    - name: Publish the verified state
+      ansible.builtin.set_stats:
+        data:
+          verify_kernel: "{{ ansible_kernel }}"
+          verify_systemd: "{{ systemd_state.stdout | trim }}"
+          verify_rebooted: "{{ reboot_required | default(false) | bool }}"
+        per_host: false
+
+    - name: Report the outcome to the ticket
+      ansible.builtin.include_role:
+        name: dperr.itsm
+        tasks_from: note
+      vars:
+        snow_ticket_note: |
+          {% if reboot_required | default(false) | bool %}
+          Reboot complete on {{ create_vm_vm_name }} ({{ ec2_instance_id }}).
+          - Kernel: {{ kernel_before }} -> {{ ansible_kernel }}
+          {% else %}
+          No reboot required on {{ create_vm_vm_name }} ({{ ec2_instance_id }}).
+          - Kernel: {{ ansible_kernel }}
+          {% endif %}
+          - Uptime: {{ (ansible_uptime_seconds | int // 60) }}m
+          - System state: {{ systemd_state.stdout | trim }}
+
+    - name: Summarize the information for debug
+      ansible.builtin.debug:
+        msg:
+          - "Rebooted:     {{ reboot_required | default(false) | bool }}"
+          - "Kernel:       {{ kernel_before }} -> {{ ansible_kernel }}"
+          - "System state: {{ systemd_state.stdout | trim }}"

@@ -1,0 +1,44 @@
+---
+# Who the ticket is raised on behalf of. Override with a real PDI user.
+snow_ticket_caller: admin
+
+# Ticket severity on creation. Keep demo tickets low/low so they don't trip
+# notification rules on a shared instance.
+snow_ticket_impact: low
+snow_ticket_urgency: low
+
+# Every ServiceNow API call is delegated to localhost.
+# This is so module never runs on a managed node.
+snow_ticket_delegate_host: localhost
+
+# The collection defaults to a 10 second timeout, since I'm using a Personal
+# Developer Instance (PDI), it routinely exceeds on writes, especially
+# after waking from hibernation. Honor SN_TIMEOUT if the credential already
+# sets it, otherwise use 60.
+snow_ticket_timeout: "{{ lookup('env', 'SN_TIMEOUT') | default(60, true) }}"
+
+# Close code used by `resolve`. Must be a value offered in the instance.
+snow_ticket_close_code: "Solved (Permanently)"
+
+# Used by `escalate`. The assignment group is only sent when non-empty: an empty value
+# would clear whatever the instance assigned, which is worse than leaving it alone.
+snow_ticket_escalate_urgency: high
+snow_ticket_escalate_impact: medium
+snow_ticket_assignment_group: ""
+
+# The collection ships an older ServiceNow close_code list.
+# This helps with the mappings.
+snow_ticket_incident_mapping:
+  close_code:
+    "": ""
+    "Solved (Permanently)": "Solved (Permanently)"
+    "Solved (Work Around)": "Solved (Work Around)"
+    "Solved Remotely (Permanently)": "Solved Remotely (Permanently)"
+    "Solved Remotely (Work Around)": "Solved Remotely (Work Around)"
+    "Not Solved (Not Reproducible)": "Not Solved (Not Reproducible)"
+    "Not Solved (Too Costly)": "Not Solved (Too Costly)"
+    "Closed/Resolved by Caller": "Closed/Resolved by Caller"
+
+# Note: `snow_sys_id` is deliberately NOT defaulted here. It is a workflow-level
+# artifact shared across nodes, not a role-private variable, so the role reads it with
+# `| default('')` rather than claiming ownership of the name.
