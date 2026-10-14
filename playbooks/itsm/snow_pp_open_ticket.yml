@@ -1,0 +1,59 @@
+---
+
+- name: Open the provisioning ticket
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../../vars/snow_ec2.yml
+
+  pre_tasks:
+
+    - name: Validate the request
+      ansible.builtin.assert:
+        that:
+          - create_vm_vm_name | default("", true) | length > 0
+          - create_vm_aws_region | default("", true) | length > 0
+          - vm_blueprint | default("", true) | length > 0
+        fail_msg: >-
+          This playbook needs create_vm_vm_name, create_vm_aws_region and
+          vm_blueprint.
+        quiet: true
+
+  tasks:
+    - name: Open (or adopt) the ticket
+      ansible.builtin.include_role:
+        name: dperr.itsm.servicenow
+        tasks_from: open
+      vars:
+        snow_ticket_short_description: "Provision & Patch EC2 instance: {{ create_vm_vm_name }}"
+        snow_ticket_description: |
+          Requested via Ansible Automation Platform.
+            Hostname:      {{ create_vm_vm_name }}
+            Blueprint:     {{ vm_blueprint }}
+            Instance type: {{ create_vm_aws_instance_size }}
+            Region:        {{ create_vm_aws_region }}
+            Environment:   {{ create_vm_vm_environment }}
+            Owner:         {{ create_vm_vm_owner }}
+            Purpose:       {{ create_vm_vm_purpose }}
+            Deployment:    {{ create_vm_vm_deployment }}
+            AAP job:       {{ awx_job_id | default('local run') }}
+        snow_ticket_opening_note: >-
+          Request received from AAP. Provisioning started by AAP job
+          {{ awx_job_id | default('local run') }}.
+
+    - name: Publish ticket identity to downstream workflow nodes
+      ansible.builtin.set_stats:
+        data:
+          snow_sys_id: "{{ snow_ticket_sys_id }}"
+          snow_number: "{{ snow_ticket_number }}"
+        per_host: false
+
+    - name: Summarize information for debug purposes
+      ansible.builtin.debug:
+        msg:
+          - "Ticket:    {{ snow_ticket_number }}"
+          - "sys_id:    {{ snow_ticket_sys_id }}"
+          - "Instance:  {{ create_vm_vm_name }} ({{ create_vm_aws_instance_size }}, {{ create_vm_aws_region }})"
+          - "Artifacts published — downstream nodes will read snow_sys_id."

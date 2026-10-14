@@ -1,0 +1,22 @@
+---
+# Shared preflight for every action in this role.
+
+# Without it, a missing credential surfaces as the collection's own message
+# "missing required arguments: host found in instance", which names an `instance`
+# parameter that doesn't exist, because auth comes from environment variables.
+
+- name: Confirm the ServiceNow credential is attached
+  ansible.builtin.assert:
+    that:
+      - lookup('env', 'SN_HOST') | length > 0
+      - lookup('env', 'SN_USERNAME') | length > 0
+      - lookup('env', 'SN_PASSWORD') | length > 0
+    fail_msg: >-
+      ServiceNow credentials are not in the environment
+      (SN_HOST set: {{ (lookup('env', 'SN_HOST') | length) > 0 }},
+      SN_USERNAME: {{ (lookup('env', 'SN_USERNAME') | length) > 0 }},
+      SN_PASSWORD: {{ (lookup('env', 'SN_PASSWORD') | length) > 0 }}).
+      In AAP: attach the ServiceNow credential to THIS job template and every template
+      that touches a ticket needs it. If running locally: export the three variables
+      before running.
+    quiet: true

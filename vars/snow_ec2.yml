@@ -1,0 +1,29 @@
+---
+# Defaults for the EC2 playbooks. Variable names match the APD's Create VM survey,
+# so that survey drives these templates unchanged.
+# These are play-level vars, so survey answers and `-e` both override them.
+
+# Image and Size (RHEL9)
+create_vm_aws_image_owners: '309956199498'
+create_vm_aws_instance_size: t3.medium
+create_vm_aws_image_architecture: x86_64
+create_vm_aws_image_filter: 'RHEL-9*HVM-*Hourly*'
+
+# Resources created by the APD cloud stack. Names, not ids.
+create_vm_aws_region: us-east-2
+create_vm_aws_vpc_subnet_name: aws-test-subnet
+create_vm_aws_securitygroup_name: aws-test-sg
+create_vm_aws_keypair_name: aws-test-key
+
+# Tags and Metadata
+vm_blueprint: rhel9
+create_vm_vm_purpose: demo
+create_vm_vm_environment: Dev
+create_vm_vm_deployment: default
+create_vm_vm_owner: ansible
+
+# How long to wait for the instance to pass EC2 status checks.
+create_vm_aws_wait_timeout: 600
+
+# SSH login user for the patch play using the AAP Machine credential.
+create_vm_remote_user: ec2-user

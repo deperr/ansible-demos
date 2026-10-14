@@ -1,0 +1,53 @@
+---
+
+- name: Terminate the demo instance
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../../vars/snow_ec2.yml
+
+  pre_tasks:
+    - name: Require something to identify the instance
+      ansible.builtin.assert:
+        that:
+          - (ec2_instance_id | default('', true) | length > 0)
+            or (create_vm_vm_name | default('', true) | length > 0)
+        fail_msg: >-
+          Nothing to terminate. In a workflow ec2_instance_id arrives as an artifact
+          from provision_ec2.yml; standalone, pass create_vm_vm_name.
+        quiet: true
+
+  tasks:
+    # Only needed when running standalone.
+    - name: Look the instance up by name
+      register: teardown_found
+      when: ec2_instance_id | default('', true) | length == 0
+      amazon.aws.ec2_instance_info:
+        region: "{{ create_vm_aws_region }}"
+        filters:
+          "tag:Name": "{{ create_vm_vm_name }}"
+          "tag-key": snow_incident
+          instance-state-name: [pending, running, stopping, stopped]
+
+    - name: Settle on the instance id
+      ansible.builtin.set_fact:
+        teardown_ids: >-
+          {{ [ec2_instance_id] if (ec2_instance_id | default('', true) | length > 0)
+             else (teardown_found.instances | default([]) | map(attribute='instance_id') | list) }}
+
+    - name: Report information into debug
+      ansible.builtin.debug:
+        msg: >-
+          {{ ('Terminating: ' + teardown_ids | join(', '))
+             if teardown_ids | length > 0
+             else 'Nothing to terminate. There is no matching instance is running.' }}
+
+    - name: Terminate the EC2 instance
+      when: teardown_ids | length > 0
+      amazon.aws.ec2_instance:
+        region: "{{ create_vm_aws_region }}"
+        instance_ids: "{{ teardown_ids }}"
+        state: absent
+        wait: true

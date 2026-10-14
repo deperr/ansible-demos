@@ -1,0 +1,47 @@
+---
+
+- name: Close the provisioning ticket
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../../vars/snow_ec2.yml
+
+  pre_tasks:
+
+    - name: Confirm we know which ticket to close
+      ansible.builtin.assert:
+        that:
+          - snow_sys_id | default("", true) | length > 0
+        fail_msg: >-
+          snow_sys_id is missing. This playbook is the final node of the workflow and
+          reads the artifact published by snow_open_ticket.yml.
+        quiet: true
+
+  tasks:
+
+    - name: Resolve the ticket
+      vars:
+        snow_ticket_note: "Resolved automatically: No human touched this ticket."
+        snow_ticket_close_notes: |
+          Provisioned and patched by Ansible Automation Platform.
+
+          - Instance: {{ create_vm_vm_name }} ({{ ec2_instance_id | default('unknown') }})
+          - Type: {{ create_vm_aws_instance_size }} in {{ create_vm_aws_region }}
+          - Image: {{ ec2_ami | default('unknown') }}
+          - Address: {{ ec2_public_ip | default('', true) or ec2_private_ip | default('unknown') }}
+          - Packages updated: {{ patch_count | default('unknown') }}
+          - Rebooted: {{ 'yes' if verify_rebooted | default(false) | bool else 'no' }}
+          - Kernel: {{ verify_kernel | default('unknown') }}
+          - System state: {{ verify_systemd | default('unknown') }}
+          - AAP job: {{ awx_job_id | default('local run') }}
+      ansible.builtin.include_role:
+        name: dperr.itsm.servicenow
+        tasks_from: resolve
+
+    - name: Summarize information for debug
+      ansible.builtin.debug:
+        msg:
+          - "Ticket {{ snow_number | default(snow_sys_id) }} resolved."
+          - "Instance {{ create_vm_vm_name }} is provisioned, patched and verified."

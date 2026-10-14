@@ -1,0 +1,216 @@
+---
+
+- name: Provision the EC2 instance
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  vars_files:
+    - ../../vars/snow_ec2.yml
+
+  pre_tasks:
+  
+    - name: Fail if variables not defined
+      ansible.builtin.assert:
+        that:
+          - create_vm_aws_region | default("", true) | length > 0
+          - create_vm_vm_name | default("", true) | length > 0
+          - vm_blueprint | default("", true) | length > 0
+          - create_vm_aws_vpc_subnet_name | default("", true) | length > 0
+          - create_vm_aws_securitygroup_name | default("", true) | length > 0
+          - create_vm_aws_keypair_name | default("", true) | length > 0
+        fail_msg: >-
+          Required variables not set. This template expects the APD
+          "Cloud | AWS | Create VM" survey: create_vm_aws_region, create_vm_vm_name,
+          vm_blueprint, create_vm_aws_vpc_subnet_name,
+          create_vm_aws_securitygroup_name and create_vm_aws_keypair_name.
+        quiet: true
+
+    - name: Confirm the ticket artifacts arrived
+      ansible.builtin.assert:
+        that:
+          - snow_sys_id | default("", true) | length > 0
+          - snow_number | default("", true) | length > 0
+        fail_msg: >-
+          snow_sys_id and snow_number are missing. They are published by
+          as upstream workflow artifacts; this playbook is not
+          meant to run before it.
+        quiet: true
+
+    # The defaults provision RHEL 9 for demo purposes.
+    - name: Reject blueprints this demo cannot patch
+      ansible.builtin.assert:
+        that:
+          - "'windows' not in (vm_blueprint | default('') | lower)"
+        fail_msg: >-
+          Blueprint '{{ vm_blueprint }}' is not supported here. These playbooks
+          provision RHEL-family images and Phase 3 patches with dnf.
+        quiet: true
+
+    - name: Confirm the image search is constrained by owner
+      ansible.builtin.assert:
+        that:
+          - create_vm_aws_image_owners | default('', true) | length > 0
+        fail_msg: >-
+          create_vm_aws_image_owners is empty. Set an account id, or the alias
+          'amazon' for Amazon-published images.
+        quiet: true
+
+  tasks:
+
+    - name: Get the subnet info
+      register: create_vm_aws_subnet
+      when: create_vm_aws_subnet_id is not defined
+      amazon.aws.ec2_vpc_subnet_info:
+        region: "{{ create_vm_aws_region }}"
+        filters:
+          "tag:Name": "{{ create_vm_aws_vpc_subnet_name }}"
+
+    - name: Confirm the subnet name resolved
+      when: create_vm_aws_subnet_id is not defined
+      ansible.builtin.assert:
+        that:
+          - create_vm_aws_subnet.subnets | default([]) | length > 0
+        fail_msg: >-
+          No subnet tagged Name='{{ create_vm_aws_vpc_subnet_name }}' exists in
+          {{ create_vm_aws_region }}. Check the name and the region against the APD
+          cloud stack, or pass create_vm_aws_subnet_id directly to skip this lookup.
+        quiet: true
+
+    - name: Save the subnet ID
+      when: create_vm_aws_subnet_id is not defined
+      ansible.builtin.set_fact:
+        create_vm_aws_subnet_id: "{{ create_vm_aws_subnet.subnets | map(attribute='id') | list | last }}"
+
+    - name: Start from the pinned AMI, if provided
+      ansible.builtin.set_fact:
+        ec2_ami_id: "{{ create_vm_aws_instance_ami | default('', true) }}"
+
+    - name: Find the correct AMI
+      register: create_vm_vm_amis
+      when: ec2_ami_id | length == 0
+      no_log: true
+      amazon.aws.ec2_ami_info:
+        region: "{{ create_vm_aws_region }}"
+        owners: "{{ create_vm_aws_image_owners }}"
+        filters:
+          name: "{{ create_vm_aws_image_filter }}"
+          architecture: "{{ create_vm_aws_image_architecture }}"
+          state: available
+
+    - name: Report how many AMI's matched
+      when: ec2_ami_id | length == 0
+      ansible.builtin.debug:
+        msg: >-
+          {{ create_vm_vm_amis.images | default([]) | length }} image(s) matched
+          '{{ create_vm_aws_image_filter }}' from owner {{ create_vm_aws_image_owners }}.
+
+    - name: Confirm the image filter matched something sortable
+      when: ec2_ami_id | length == 0
+      ansible.builtin.assert:
+        that:
+          - create_vm_vm_amis.images | default([]) | selectattr('creation_date', 'defined') | list | length > 0
+        fail_msg: >-
+          No usable AMI in {{ create_vm_aws_region }}: filter
+          '{{ create_vm_aws_image_filter }}' (arch
+          {{ create_vm_aws_image_architecture }}, owners
+          {{ create_vm_aws_image_owners }}) returned
+          {{ create_vm_vm_amis.images | default([]) | length }} image(s), of which
+          0 have a creation_date. Check the blueprint, or pass
+          create_vm_aws_instance_ami directly to skip this lookup.
+        quiet: true
+
+    - name: Save the AMI
+      when: ec2_ami_id | length == 0
+      ansible.builtin.set_fact:
+        create_vm_aws_instance_ami: >-
+          {{ (create_vm_vm_amis.images | selectattr('creation_date', 'defined')
+              | sort(attribute='creation_date') | last).image_id }}
+
+    - name: Create the EC2 instance
+      register: create_vm_aws_ec2_instance
+      amazon.aws.ec2_instance:
+        name: "{{ create_vm_vm_name }}"
+        region: "{{ create_vm_aws_region }}"
+        instance_type: "{{ create_vm_aws_instance_size }}"
+        image_id: "{{ create_vm_aws_instance_ami | trim }}"
+        key_name: "{{ create_vm_aws_keypair_name }}"
+        vpc_subnet_id: "{{ create_vm_aws_subnet_id }}"
+        security_group: "{{ create_vm_aws_securitygroup_name }}"
+        state: started
+        wait: true
+        wait_timeout: "{{ create_vm_aws_wait_timeout }}"
+        tags:
+          Name: "{{ create_vm_vm_name }}"
+          blueprint: "{{ vm_blueprint }}"
+          environment: "{{ create_vm_vm_environment }}"
+          deployment: "{{ create_vm_vm_deployment }}"
+          owner: "{{ create_vm_vm_owner }}"
+          purpose: "{{ create_vm_vm_purpose }}"
+          managed-by: aap-product-demos
+          apd: "true"
+          snow_incident: "{{ snow_number }}"
+
+    - name: Confirm exactly one EC2 instance matched
+      ansible.builtin.assert:
+        that:
+          - create_vm_aws_ec2_instance.instances | default([]) | length == 1
+        fail_msg: >-
+          Expected 1 instance named '{{ create_vm_vm_name }}', got
+          {{ create_vm_aws_ec2_instance.instances | default([]) | length }}. See the
+          idempotency note in docs/mvp/phase-2-provision-ec2.md.
+        quiet: true
+
+    - name: Shorthand for the instance facts
+      ansible.builtin.set_fact:
+        ec2_facts: "{{ create_vm_aws_ec2_instance.instances[0] }}"
+
+    - name: Publish instance facts to downstream nodes
+      ansible.builtin.set_stats:
+        data:
+          priv_network_private_ip: "{{ ec2_facts.private_ip_address | default('') }}"
+          public_ip: "{{ ec2_facts.public_ip_address | default('') }}"
+          ec2_instance_id: "{{ ec2_facts.instance_id }}"
+          ec2_private_ip: "{{ ec2_facts.private_ip_address | default('') }}"
+          ec2_public_ip: "{{ ec2_facts.public_ip_address | default('') }}"
+          ec2_az: "{{ ec2_facts.placement.availability_zone }}"
+          ec2_ami: "{{ ec2_facts.image_id }}"
+        per_host: false
+
+  # I'm not using these yet, but would like to build that in eventually.
+    - name: Publish CMDB facts
+      ansible.builtin.set_stats:
+        data:
+          ci_payload:
+            name: "{{ create_vm_vm_name }}"
+            ip_address: "{{ ec2_facts.private_ip_address | default('') }}"
+            object_id: "{{ ec2_facts.instance_id }}"
+            cpu_count: "{{ ec2_facts.cpu_options.core_count | default('') }}"
+            environment: "{{ create_vm_vm_environment }}"
+            os: Linux
+        per_host: false
+
+    - name: Record instance details on the ticket
+      ansible.builtin.include_role:
+        name: dperr.itsm.servicenow
+        tasks_from: note
+      vars:
+        snow_ticket_note: |
+          EC2 instance provisioned.
+
+          - Hostname:      {{ create_vm_vm_name }}
+          - Instance ID:   {{ ec2_facts.instance_id }}
+          - Instance type: {{ ec2_facts.instance_type }}
+          - Region / AZ:   {{ create_vm_aws_region }} / {{ ec2_facts.placement.availability_zone }}
+          - AMI:           {{ ec2_facts.image_id }}
+          - Blueprint:     {{ vm_blueprint }}
+          - Private IP:    {{ ec2_facts.private_ip_address | default('n/a') }}
+          - Public IP:     {{ ec2_facts.public_ip_address | default('none') }}
+          - Instance tagged with snow_incident={{ snow_number }}.
+
+    - name: Summarize information for debug
+      ansible.builtin.debug:
+        msg:
+          - "Instance:   {{ ec2_facts.instance_id }} ({{ ec2_facts.instance_type }})"
+          - "Private IP: {{ ec2_facts.private_ip_address | default('n/a') }}"
+          - "Ticket:     {{ snow_number }} updated with instance facts"
