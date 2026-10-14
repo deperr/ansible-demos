@@ -24,7 +24,7 @@
   tasks:
     - name: Open (or adopt) the ticket
       ansible.builtin.include_role:
-        name: dperr.itsm
+        name: dperr.itsm.servicenow
         tasks_from: open
       vars:
         snow_ticket_short_description: "Provision & Patch EC2 instance: {{ create_vm_vm_name }}"
